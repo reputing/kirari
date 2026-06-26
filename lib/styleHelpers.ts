@@ -1,0 +1,120 @@
+import type { CSSProperties } from "react";
+import type { TextFx, BgPattern, WindowType } from "./types";
+
+// ============================================================================
+// Style helpers — text effects, background patterns, default window sizes.
+// CSS values copied verbatim from the prototype so the visual output is
+// pixel-identical. React camelCases CSS keys; vendor-prefixed props use the
+// React-specific capitalization (WebkitBackgroundClip, etc).
+// ============================================================================
+
+export function nameStyleFor(fx: TextFx, size?: number): CSSProperties {
+  const base: CSSProperties = {
+    fontFamily: "var(--font-display)",
+    fontSize: (size || 25) + "px",
+    lineHeight: 1.05,
+    display: "inline-block",
+  };
+  if (fx === "glow")
+    return {
+      ...base,
+      color: "var(--accent)",
+      textShadow: "0 0 9px var(--accent)",
+      animation: "glowpulse 2.2s ease-in-out infinite",
+    };
+  if (fx === "rainbow")
+    return {
+      ...base,
+      backgroundImage:
+        "linear-gradient(90deg,#ff7ec0,#ffd36e,#7be0c0,#7cc0ff,#c79bff,#ff7ec0)",
+      backgroundSize: "200% auto",
+      WebkitBackgroundClip: "text",
+      backgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      color: "transparent",
+      animation: "hue 4s linear infinite",
+    };
+  if (fx === "sticker")
+    return {
+      ...base,
+      color: "#fff",
+      WebkitTextStroke: "2px var(--accent)",
+      textShadow: "3px 3px 0 var(--accent)",
+    };
+  if (fx === "retro3d")
+    return {
+      ...base,
+      color: "var(--accent)",
+      textShadow:
+        "1px 1px 0 var(--ink),2px 2px 0 var(--ink),4px 4px 0 rgba(0,0,0,.18)",
+    };
+  return base;
+}
+
+export function bgFor(bg: BgPattern | string): CSSProperties {
+  const m: Record<string, CSSProperties> = {
+    none: { background: "var(--panel)" },
+    dots: {
+      backgroundColor: "var(--panel)",
+      backgroundImage: "radial-gradient(var(--line) 1.6px, transparent 1.7px)",
+      backgroundSize: "17px 17px",
+    },
+    grid: {
+      backgroundColor: "var(--panel)",
+      backgroundImage:
+        "linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px)",
+      backgroundSize: "22px 22px,22px 22px",
+    },
+    gingham: {
+      backgroundColor: "var(--panel)",
+      backgroundImage:
+        "linear-gradient(0deg, color-mix(in srgb,var(--accent) 15%, transparent) 50%, transparent 50%), linear-gradient(90deg, color-mix(in srgb,var(--accent) 15%, transparent) 50%, transparent 50%)",
+      backgroundSize: "22px 22px,22px 22px",
+    },
+    stripes: {
+      backgroundImage:
+        "repeating-linear-gradient(45deg, color-mix(in srgb,var(--accent) 13%, var(--panel)) 0 13px, var(--panel) 13px 26px)",
+    },
+    hearts: {
+      backgroundColor: "var(--panel)",
+      backgroundImage:
+        "radial-gradient(circle at 50% 38%, var(--line) 28%, transparent 29%), radial-gradient(circle at 50% 38%, var(--line) 28%, transparent 29%)",
+      backgroundSize: "26px 26px",
+      backgroundPosition: "0 0,13px 13px",
+    },
+  };
+  return m[bg] || m.none;
+}
+
+const WIN_SIZES: Record<WindowType, { w: number; h: number }> = {
+  profile: { w: 380, h: 566 },
+  chat: { w: 362, h: 506 },
+  guestbook: { w: 434, h: 560 },
+  messages: { w: 316, h: 486 },
+  notifs: { w: 322, h: 464 },
+  edit: { w: 472, h: 610 },
+  settings: { w: 452, h: 572 },
+  newgroup: { w: 374, h: 472 },
+};
+
+export function winSize(t: WindowType): { w: number; h: number } {
+  return WIN_SIZES[t] || { w: 380, h: 520 };
+}
+
+// All keyframes used across the desktop. Injected once at the app root.
+export const KEYFRAMES = `
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;overflow:hidden}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--line,#d8c4d2);border-radius:999px}
+::-webkit-scrollbar-track{background:transparent}
+input,textarea,button,select{font-family:inherit}
+@keyframes fall{0%{transform:translateY(-16vh) rotate(0)}100%{transform:translateY(118vh) rotate(330deg)}}
+@keyframes twinkle{0%,100%{opacity:.2}50%{opacity:.85}}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-5px);opacity:1}}
+@keyframes popin{0%{transform:translateY(9px);opacity:.4}100%{transform:translateY(0);opacity:1}}
+@keyframes drift{0%{transform:translateX(-14px)}100%{transform:translateX(14px)}}
+@keyframes hue{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes glowpulse{0%,100%{text-shadow:0 0 7px var(--accent)}50%{text-shadow:0 0 15px var(--accent),0 0 26px var(--accent)}}
+`;
