@@ -30,6 +30,7 @@ import { savePage, loadPage } from "./store";
 
 export interface DesktopApi {
   state: AppState;
+  syncError: string | null;
   rootRef: React.RefObject<HTMLDivElement>;
   deskRef: React.RefObject<HTMLDivElement>;
   msgRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
@@ -123,6 +124,7 @@ export function useDesktop(): DesktopApi {
   // handle before hydration finishes.
   const [state, setState] = useState<AppState>(() => makeBlankState(""));
   const hydratedRef = useRef(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // imperative refs (no React re-render during drag / scroll / cursor)
   const rootRef = useRef<HTMLDivElement>(null);
@@ -280,7 +282,9 @@ export function useDesktop(): DesktopApi {
         profile: state.profile,
         guestbook: state.guestbook,
         updatedAt: Date.now(),
-      });
+      })
+        .then(() => setSyncError(null))
+        .catch((e) => setSyncError(e instanceof Error ? e.message : "couldn't sync your changes"));
     }, 400);
     return () => clearTimeout(t);
   }, [state.profile, state.theme, state.customThemes, state.mood, state.guestbook, state.fontDisplay, state.fontBody]);
@@ -1008,6 +1012,7 @@ export function useDesktop(): DesktopApi {
 
   return {
     state,
+    syncError,
     rootRef,
     deskRef,
     msgRefs,

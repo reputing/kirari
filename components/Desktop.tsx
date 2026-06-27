@@ -261,6 +261,13 @@ export default function Desktop() {
     <div style={rootStyle} ref={api.rootRef}>
       <style dangerouslySetInnerHTML={{ __html: KEYFRAMES }} />
 
+      {api.syncError && (
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 9999, background: "#c0392b", color: "#fff", padding: "8px 14px", fontSize: "12.5px", fontFamily: "var(--font-body)", display: "flex", alignItems: "center", gap: "10px", boxShadow: "0 2px 10px rgba(0,0,0,.3)" }}>
+          <span style={{ fontSize: "15px" }}>⚠</span>
+          <span style={{ flex: 1 }}>{api.syncError}</span>
+        </div>
+      )}
+
       {/* ambient decoration layer */}
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
         {sparkles.map((sp) => (

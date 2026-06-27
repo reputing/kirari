@@ -79,16 +79,41 @@ export async function savePage(page: PublishedPage): Promise<void> {
     // write". On first save the owner is set; afterwards RLS blocks anyone else.
     const { data: auth } = await supabase.auth.getUser();
     const uid = auth.user?.id;
+    if (!uid) {
+      // No Supabase session — saves can't persist to the cloud. This usually
+      // means the account was never activated (email confirmation still on in
+      // Supabase Auth). Surface it loudly instead of silently dropping the save.
+      throw new Error(
+        "not signed in to the database — your edits saved locally but won't sync. " +
+        "fix: in Supabase → Authentication → Email, turn OFF 'Confirm email', then sign up again."
+      );
+    }
+
+    // keep the handle registry current (also lets others resolve us for DMs)
+    await supabase.from("handles").upsert({ handle, uid }, { onConflict: "handle" });
+
     const row: Record<string, unknown> = {
       handle,
+      owner: uid,
       theme: payload.theme,
       mood: payload.mood,
-      data: payload, // jsonb: full PublishedPage
+      data: payload,
       updated_at: new Date(payload.updatedAt).toISOString(),
     };
-    if (uid) row.owner = uid;
     const { error } = await supabase.from("pages").upsert(row, { onConflict: "handle" });
-    if (error) console.warn("[kirari] savePage supabase error:", error.message);
+    if (error) {
+      // Legacy rows created before ownership tracking have owner = NULL, so the
+      // owner-only UPDATE policy rejects them. Claim the row, then retry once.
+      if (/row-level security|violates|policy/i.test(error.message)) {
+        const { error: claimErr } = await supabase.from("pages").update({ owner: uid }).eq("handle", handle).is("owner", null);
+        if (!claimErr) {
+          const { error: retryErr } = await supabase.from("pages").upsert(row, { onConflict: "handle" });
+          if (retryErr) throw new Error("save failed: " + retryErr.message);
+          return;
+        }
+      }
+      throw new Error("save failed: " + error.message);
+    }
   }
 }
 

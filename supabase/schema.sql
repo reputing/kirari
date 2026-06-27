@@ -186,6 +186,15 @@ create policy "pages update own" on public.pages for update
   using (owner = auth.uid())
   with check (owner = auth.uid());
 
+-- Legacy rescue: let any authenticated user claim a row that has NO owner yet
+-- (owner IS NULL). Once claimed, the owner-only policy above governs it. This
+-- unblocks pages created before ownership tracking existed.
+drop policy if exists "pages claim ownerless" on public.pages;
+create policy "pages claim ownerless" on public.pages for update
+  to authenticated
+  using (owner is null)
+  with check (owner = auth.uid());
+
 -- DELETE: owner only.
 drop policy if exists "pages delete own" on public.pages;
 create policy "pages delete own" on public.pages for delete
@@ -343,3 +352,15 @@ create policy "admins write pages" on public.pages for all
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+-- ============================================================================
+-- One-time backfill: claim ownership of legacy pages that were created before
+-- ownership tracking (owner IS NULL). Without this, the owner-only UPDATE
+-- policy blocks the rightful owner from editing their own page. Matches each
+-- page to its owner via the handles registry; safe to re-run.
+-- ============================================================================
+update public.pages p
+set owner = h.uid
+from public.handles h
+where p.handle = h.handle
+  and p.owner is null;
