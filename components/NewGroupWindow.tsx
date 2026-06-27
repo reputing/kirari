@@ -3,7 +3,6 @@
 import type { CSSProperties } from "react";
 import { initOf } from "@/lib/styleHelpers";
 import type { DesktopApi } from "@/lib/useDesktop";
-import { peopleAll } from "@/lib/seed";
 import { inputStyle } from "./shared";
 
 // New group composer — name the group, toggle-select known friends, invite
@@ -12,7 +11,9 @@ import { inputStyle } from "./shared";
 export default function NewGroupWindow({ api, winId }: { api: DesktopApi; winId: string }) {
   const { state } = api;
   const ng = state.newGroup;
-  const PEOPLE = peopleAll(state.friends);
+  // only the user's real friends (empty for fresh accounts — no demo people)
+  const PEOPLE = state.friends;
+  const friendIds = Object.keys(PEOPLE);
   const pickedIds = Object.keys(ng.picked).filter((k) => ng.picked[k]);
   const total = pickedIds.length + ng.invites.length;
 
@@ -54,7 +55,12 @@ export default function NewGroupWindow({ api, winId }: { api: DesktopApi; winId:
         INVITE FRIENDS
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "7px", marginBottom: "16px" }}>
-        {Object.keys(PEOPLE).map((id) => {
+        {friendIds.length === 0 && (
+          <div style={{ padding: "14px", textAlign: "center", fontSize: "12px", color: "var(--ink-soft)", border: "1px dashed var(--line)", borderRadius: "var(--radius)" }}>
+            no friends yet — invite anyone by their @handle below ♡
+          </div>
+        )}
+        {friendIds.map((id) => {
           const p = PEOPLE[id];
           const on = !!ng.picked[id];
           const style: CSSProperties = {

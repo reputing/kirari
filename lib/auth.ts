@@ -23,11 +23,26 @@ export interface Session {
 const SESSION_KEY = "kirari:session";
 const LOCAL_USERS = "kirari:users"; // { [handle]: { pw } } — local fallback only
 
+// Handles must be email-local-part AND URL safe: lowercase letters, digits,
+// underscore and hyphen only. Anything else is stripped so the mapped email is
+// always valid. (Unicode like "=3" or "☆彡" gets cleaned to a safe slug.)
 function norm(h: string) {
-  return (h || "").replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+  return (h || "")
+    .replace(/^@+/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 32);
 }
+// Is the raw input a usable handle (3–32 safe chars after cleaning)?
+export function validHandle(h: string): boolean {
+  const n = norm(h);
+  return n.length >= 3 && n.length <= 32;
+}
+// kirari uses a real domain for the internal auth email mapping (Supabase
+// rejects some reserved TLDs like .local). The user never sees or types this.
+const AUTH_EMAIL_DOMAIN = "users.kirari.cafe";
 function emailFor(handle: string) {
-  return norm(handle) + "@kirari.local";
+  return norm(handle) + "@" + AUTH_EMAIL_DOMAIN;
 }
 function isAdminHandle(handle: string) {
   return ADMIN_HANDLES.includes(norm(handle));
@@ -48,8 +63,12 @@ function setLocalSession(handle: string) {
 
 export async function signUp(handle: string, password: string): Promise<{ ok: boolean; error?: string }> {
   const h = norm(handle);
-  if (!h) return { ok: false, error: "pick a handle ♡" };
-  if (password.length < 4) return { ok: false, error: "password too short" };
+  if (h.length < 3) return { ok: false, error: "handle needs 3+ letters/numbers" };
+  if (password.length < 4) return { ok: false, error: "password too short (4+)" };
+
+  // block re-registering a handle that already has a published page
+  const free = await handleAvailable(h);
+  if (!free) return { ok: false, error: "that handle is taken" };
 
   if (supabaseConfigured && supabase) {
     const { error } = await supabase.auth.signUp({
@@ -57,7 +76,10 @@ export async function signUp(handle: string, password: string): Promise<{ ok: bo
       password,
       options: { data: { handle: h } },
     });
-    if (error) return { ok: false, error: error.message.includes("registered") ? "handle taken" : error.message };
+    if (error) {
+      const taken = /registered|already/i.test(error.message);
+      return { ok: false, error: taken ? "that handle is taken" : error.message };
+    }
     // session is created by Supabase; remember handle locally for hydration
     setLocalSession(h);
     return { ok: true };
