@@ -2,9 +2,22 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://kirari.cafe"),
   title: "kirari.cafe ✦",
   description:
     "kirari.cafe — your biolink + chat, as a cute 2000s anime desktop. claim a handle, customize your page, sign guestbooks, chat 1:1 or in groups.",
+  openGraph: {
+    title: "kirari.cafe ✦",
+    description: "your whole internet, one little window. claim a handle & make your corner of the web ♡",
+    url: "https://kirari.cafe",
+    siteName: "kirari.cafe",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "kirari.cafe ✦",
+    description: "your whole internet, one little window ♡",
+  },
 };
 
 export const viewport: Viewport = {

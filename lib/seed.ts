@@ -83,7 +83,6 @@ export function makeInitialState(): AppState {
     profile: {
       name: "yuki ☆彡",
       handle: "yuki",
-      pronouns: "she/they",
       bio: "16 · digital doodles & dream pop · i answer every knock so pls be nice (｡•ᴗ•｡)♡",
       since: "online since '09 ♡ saturn standard time",
       bg: "dots",
@@ -195,7 +194,6 @@ export function makeBlankState(handle: string): AppState {
       ...s.profile,
       name: h,
       handle: h,
-      pronouns: "",
       bio: "this is my little corner of the web ♡ say hi!",
       since: "online since today ✦",
       links: [

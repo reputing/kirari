@@ -90,6 +90,7 @@ function MenuBar({ session, onGetStarted, onLogin, onDash }: { session: { handle
       }}
     >
       <span style={{ fontFamily: "var(--font-display)", fontSize: "15px" }}>✦ kirari.cafe</span>
+      <a href="/explore" style={{ fontFamily: "var(--font-pixel)", fontSize: "11px", color: "inherit", textDecoration: "none", opacity: 0.85 }}>explore</a>
       <div style={{ flex: 1 }} />
       {session ? (
         <>

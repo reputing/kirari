@@ -15,6 +15,7 @@ export type WindowType =
   | "chat"
   | "guestbook"
   | "messages"
+  | "dms"
   | "notifs"
   | "edit"
   | "settings"
@@ -29,6 +30,7 @@ export interface LinkItem {
   kind: "ext" | "guest";
   icon?: string; // social icon id from the icon library
   url?: string; // destination URL (public page)
+  embed?: boolean; // render as an inline player (Spotify/YouTube/SoundCloud) when possible
 }
 
 export type PageBgType = "pattern" | "color" | "image" | "video";
@@ -36,7 +38,6 @@ export type PageBgType = "pattern" | "color" | "image" | "video";
 export interface Profile {
   name: string;
   handle: string;
-  pronouns: string;
   bio: string;
   since: string;
   bg: BgPattern;
@@ -60,6 +61,27 @@ export interface Profile {
   cardAnim?: "none" | "float" | "pulse"; // idle card animation
   shadowStrength?: number; // 0..100 card drop-shadow intensity (default 50)
   badges?: string[]; // badge ids shown on the card (self-pick + admin-granted)
+  badgeColors?: Record<string, string>; // per-badge color override (id -> hex)
+
+  // ---- biolink theme (independent of the dashboard skin) ----
+  pageTheme?: string; // ThemeId or custom id for the PUBLIC page only
+
+  // ---- cinematic entrance ----
+  entranceDelay?: number; // seconds the bg plays before content appears (0-10)
+  entranceStyle?: "fade" | "drop" | "rise" | "zoom" | "glitch" | "iris"; // reveal style
+  staggerMs?: number; // ms between each element appearing (default 220)
+
+  // ---- ambience / grade ----
+  ambience?: "none" | "petals" | "rain" | "snow" | "embers" | "orbs"; // overlay
+  ambienceDensity?: number; // 0-100
+  vignette?: number; // 0-100 edge darkening
+  grain?: number; // 0-100 film grain
+  grade?: "none" | "noir" | "sepia" | "vhs" | "bloom" | "dream"; // color filter
+
+  // ---- card material ----
+  neonGlow?: boolean; // accent-colored glow around the card
+  animatedBorder?: boolean; // rotating gradient ring
+  outlineText?: boolean; // stroke on the name for legibility on busy bgs
 }
 
 // Badge catalog entry. `admin: true` badges can only be granted via the admin panel.

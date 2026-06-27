@@ -6,7 +6,7 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES, THEME_METAS, EDITABLE_VARS, resolveThemeVars, themeSwatches, encodeTheme } from "@/lib/themes";
 import type { DesktopApi } from "@/lib/useDesktop";
 import { MOODS, FONTS, BADGES } from "@/lib/seed";
-import { uploadAsset, loadPage, savePage } from "@/lib/store";
+import { uploadAsset, renameHandle, adminUpdatePage } from "@/lib/store";
 import { getSession, signOut, changePassword } from "@/lib/auth";
 import { SectionLabel } from "./shared";
 
@@ -197,7 +197,13 @@ function AccountPanel({ api }: { api: DesktopApi }) {
       <FieldRow label="handle (your url)">
         <div style={{ display: "flex", gap: "6px" }}>
           <input value={handle} onChange={(e) => setHandleInput(e.target.value.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase())} style={acctIn()} placeholder="handle" />
-          <button onClick={() => { const h = handle.trim(); if (h) { api.setProfileVal("handle", h); try { localStorage.setItem("kirari:lastHandle", h); } catch {} } }} style={acctBtn()}>save</button>
+          <button onClick={async () => {
+            const h = handle.trim();
+            if (!h || h === state.profile.handle) return;
+            const res = await renameHandle(state.profile.handle, h);
+            if (res.ok) { api.setProfileVal("handle", h); alert("✦ handle changed to @" + h + " — your old URL is now free."); }
+            else alert(res.error || "couldn't change handle");
+          }} style={acctBtn()}>save</button>
         </div>
       </FieldRow>
 
@@ -228,24 +234,37 @@ function AccountPanel({ api }: { api: DesktopApi }) {
 // ---- badge picker (self-pick non-admin badges) ----
 function BadgePicker({ api }: { api: DesktopApi }) {
   const owned = api.state.profile.badges || [];
+  const colors = api.state.profile.badgeColors || {};
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
       {BADGES.map((b) => {
         const on = owned.includes(b.id);
         const locked = b.admin && !on; // admin badges can't be self-added
+        const color = colors[b.id] || b.color;
         return (
-          <button
-            key={b.id}
-            disabled={locked}
-            onClick={() => {
-              const next = on ? owned.filter((x) => x !== b.id) : [...owned, b.id];
-              api.setProfileVal("badges", next);
-            }}
-            title={locked ? "granted by staff only" : b.label}
-            style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "5px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 700, cursor: locked ? "not-allowed" : "pointer", color: on ? "#fff" : "var(--ink)", background: on ? b.color : "var(--panel-2)", border: on ? "none" : "var(--border)", opacity: locked ? 0.4 : 1 }}
-          >
-            <span>{b.icon}</span>{b.label}{b.admin && " ★"}
-          </button>
+          <div key={b.id} style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+            <button
+              disabled={locked}
+              onClick={() => {
+                const next = on ? owned.filter((x) => x !== b.id) : [...owned, b.id];
+                api.setProfileVal("badges", next);
+              }}
+              title={locked ? "granted by staff only" : b.label}
+              style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "5px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 700, cursor: locked ? "not-allowed" : "pointer", color: on ? "#fff" : "var(--ink)", background: on ? color : "var(--panel-2)", border: on ? "none" : "var(--border)", opacity: locked ? 0.4 : 1 }}
+            >
+              <span>{b.icon}</span>{b.label}{b.admin && " ★"}
+            </button>
+            {on && (
+              <label title="badge color" style={{ width: "20px", height: "20px", borderRadius: "6px", overflow: "hidden", border: "var(--border)", cursor: "pointer", flex: "0 0 auto", background: color }}>
+                <input
+                  type="color"
+                  value={/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : b.color}
+                  onChange={(e) => api.setProfileVal("badgeColors", { ...colors, [b.id]: e.target.value })}
+                  style={{ opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+                />
+              </label>
+            )}
+          </div>
         );
       })}
     </div>
@@ -262,12 +281,12 @@ function AdminPanel() {
     const h = target.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
     if (!h) { setMsg("enter a handle"); return; }
     setWorking(true); setMsg("");
-    const page = await loadPage(h);
-    if (!page) { setMsg("no page found for @" + h); setWorking(false); return; }
-    const badges = new Set(page.profile.badges || []);
-    if (grant) badges.add(badgeId); else badges.delete(badgeId);
-    await savePage({ ...page, profile: { ...page.profile, badges: Array.from(badges) }, updatedAt: Date.now() });
-    setMsg(`${grant ? "granted" : "revoked"} ${badgeId} ${grant ? "to" : "from"} @${h} ✓`);
+    const res = await adminUpdatePage(h, (page) => {
+      const badges = new Set(page.profile.badges || []);
+      if (grant) badges.add(badgeId); else badges.delete(badgeId);
+      return { ...page, profile: { ...page.profile, badges: Array.from(badges) } };
+    });
+    setMsg(res.ok ? `${grant ? "granted" : "revoked"} ${badgeId} ${grant ? "to" : "from"} @${h} ✓` : (res.error || "failed"));
     setWorking(false);
   }
 
@@ -421,7 +440,8 @@ function DashImageRow({ current, handle, onUrl }: { current?: string; handle: st
   const [busy, setBusy] = useState(false);
   async function pick(f: File) {
     setBusy(true);
-    try { onUrl(await uploadAsset(f, "bg", handle || "me")); }
+    try { const res = await uploadAsset(f, "bg", handle || "me"); onUrl(res.url); if (res.temporary) alert("⚠ media storage isn't connected — this wallpaper only shows in your browser this session."); }
+    catch (e) { alert(e instanceof Error ? e.message : "upload failed"); }
     finally { setBusy(false); if (ref.current) ref.current.value = ""; }
   }
   return (

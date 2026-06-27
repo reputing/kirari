@@ -1,14 +1,26 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { DesktopApi } from "@/lib/useDesktop";
+import type { GuestEntry } from "@/lib/types";
+import { loadGuestbook } from "@/lib/store";
 import BioPageView from "./BioPageView";
 
-// Dashboard preview of the public page. Renders the SAME BioPageView component
-// the visitor sees (embedded mode, no reveal animation) so the preview and the
-// live page can never drift apart. The "knock" button here just opens a DM with
-// the first friend as a stand-in; "sign" opens the guestbook window.
+// Dashboard preview of the public page. Renders the SAME BioPageView the
+// visitor sees, and loads the REAL visitor-signed guestbook entries (merged
+// with seeded ones) so the preview matches the live page instead of drifting.
 export default function ProfileWindow({ api }: { api: DesktopApi }) {
   const { state } = api;
+  const [visitorGb, setVisitorGb] = useState<GuestEntry[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    loadGuestbook(state.profile.handle).then((g) => { if (alive) setVisitorGb(g); });
+    return () => { alive = false; };
+  }, [state.profile.handle]);
+
+  const guestbook = [...visitorGb, ...(state.guestbook || [])].slice(0, 200);
+
   return (
     <BioPageView
       data={{
@@ -16,13 +28,13 @@ export default function ProfileWindow({ api }: { api: DesktopApi }) {
         customThemes: state.customThemes,
         mood: state.mood,
         profile: state.profile,
-        guestbook: state.guestbook,
+        guestbook,
         fontDisplay: state.fontDisplay,
         fontBody: state.fontBody,
       }}
       embedded
       animate={false}
-      onKnock={() => api.openWindow("messages")}
+      onKnock={() => api.openWindow("dms")}
       onSign={() => api.openWindow("guestbook")}
     />
   );

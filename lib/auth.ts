@@ -8,12 +8,12 @@
 // configured we fall back to a localStorage "session" so the whole flow works
 // locally; the public API is identical either way.
 //
-// Admin: the handle in ADMIN_HANDLES gets isAdmin = true (for the @x panel).
+// Admin: the handle in ADMIN_HANDLES gets isAdmin = true (for the @777 panel).
 // ============================================================================
 
 import { supabase, supabaseConfigured } from "./supabase/client";
 
-export const ADMIN_HANDLES = ["x"]; // accounts with admin panel access
+export const ADMIN_HANDLES = ["777"]; // accounts with admin panel access
 
 export interface Session {
   handle: string;
@@ -83,6 +83,7 @@ export async function signUp(handle: string, password: string): Promise<{ ok: bo
     }
     // session is created by Supabase; remember handle locally for hydration
     setLocalSession(h);
+    await registerHandle(h);
     return { ok: true };
   }
 
@@ -154,12 +155,36 @@ export async function handleAvailable(handle: string): Promise<boolean> {
   const h = norm(handle);
   if (!h) return false;
   if (supabaseConfigured && supabase) {
-    const { data } = await supabase.from("pages").select("handle").eq("handle", h).maybeSingle();
-    return !data;
+    // the handles registry is the source of truth for ownership (written at
+    // signup, before a page exists). Check it first, then pages as a backstop.
+    const { data: reg } = await supabase.from("handles").select("handle").eq("handle", h).maybeSingle();
+    if (reg) return false;
+    const { data: pg } = await supabase.from("pages").select("handle").eq("handle", h).maybeSingle();
+    return !pg;
   }
   return !localUsers()[h];
 }
 
 export function isAdmin(session: Session | null): boolean {
   return !!session?.isAdmin;
+}
+
+// ---- handle registry (handle -> owner uid) ------------------------------
+// Claim the current user's handle in the registry. Idempotent; safe to call on
+// every signup/login. No-op without Supabase.
+export async function registerHandle(handle: string): Promise<void> {
+  const h = norm(handle);
+  if (!h || !supabaseConfigured || !supabase) return;
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return;
+  await supabase.from("handles").upsert({ handle: h, uid }, { onConflict: "handle" });
+}
+
+// Resolve a handle to its owner's uid (for binding DMs). null if unclaimed.
+export async function resolveHandleUid(handle: string): Promise<string | null> {
+  const h = norm(handle);
+  if (!h || !supabaseConfigured || !supabase) return null;
+  const { data } = await supabase.from("handles").select("uid").eq("handle", h).maybeSingle();
+  return (data?.uid as string) || null;
 }

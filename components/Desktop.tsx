@@ -106,7 +106,7 @@ export default function Desktop() {
 
   const appDefs: IconDef[] = [
     { id: "profile", icon: "❀", label: "page", open: () => api.openWindow("profile") },
-    { id: "messages", icon: "✉", label: "chats", badge: msgUnread || 0, open: () => api.openWindow("messages") },
+    { id: "messages", icon: "✉", label: "chats", badge: msgUnread || 0, open: () => api.openWindow("dms") },
     { id: "guestbook", icon: "★", label: "guest", open: () => api.openWindow("guestbook") },
     { id: "notifs", icon: "♡", label: "alerts", badge: notifUnread || 0, open: () => api.openWindow("notifs") },
     { id: "requests", icon: "♥", label: "friends", badge: reqIncoming || 0, open: () => api.openWindow("requests") },

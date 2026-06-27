@@ -91,6 +91,7 @@ const WIN_SIZES: Record<WindowType, { w: number; h: number }> = {
   chat: { w: 362, h: 506 },
   guestbook: { w: 434, h: 560 },
   messages: { w: 316, h: 486 },
+  dms: { w: 480, h: 440 },
   notifs: { w: 322, h: 464 },
   edit: { w: 472, h: 610 },
   settings: { w: 452, h: 572 },

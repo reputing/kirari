@@ -8,6 +8,7 @@ import ProfileWindow from "./ProfileWindow";
 import ChatWindow from "./ChatWindow";
 import GuestbookWindow from "./GuestbookWindow";
 import MessagesWindow from "./MessagesWindow";
+import DMsWindow from "./DMsWindow";
 import NotifsWindow from "./NotifsWindow";
 import EditWindow from "./EditWindow";
 import SettingsWindow from "./SettingsWindow";
@@ -29,6 +30,7 @@ export function winMeta(
   }
   if (w.type === "guestbook") return { icon: "★", title: "★ guestbook" };
   if (w.type === "messages") return { icon: "✉", title: "messages" };
+  if (w.type === "dms") return { icon: "✉", title: "✦ chats" };
   if (w.type === "notifs") return { icon: "♡", title: "notifications" };
   if (w.type === "edit") return { icon: "✎", title: "edit my page" };
   if (w.type === "settings") return { icon: "⚙", title: "settings" };
@@ -164,6 +166,7 @@ export default function WindowFrame({
         {w.type === "chat" && <ChatWindow api={api} convoId={w.convoId as string} />}
         {w.type === "guestbook" && <GuestbookWindow api={api} />}
         {w.type === "messages" && <MessagesWindow api={api} />}
+        {w.type === "dms" && <DMsWindow api={api} />}
         {w.type === "notifs" && <NotifsWindow api={api} />}
         {w.type === "edit" && <EditWindow api={api} />}
         {w.type === "settings" && <SettingsWindow api={api} />}

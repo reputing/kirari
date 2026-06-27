@@ -12,6 +12,7 @@
 @keyframes cardfloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
 @keyframes cardpulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.012) } }
 @keyframes statusblink { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+@keyframes spinhue { to { transform: rotate(360deg) } }
 
 * { box-sizing: border-box; }
 

@@ -170,10 +170,27 @@ create policy "own notifications" on public.notifications for all
 
 drop policy if exists "pages are public" on public.pages;
 create policy "pages are public" on public.pages for select using (true);
+
+-- INSERT: you may only create a row owned by yourself (claims the handle to you).
 drop policy if exists "owner writes page" on public.pages;
-create policy "owner writes page" on public.pages for all
-  using (owner is null or owner = auth.uid())
-  with check (owner is null or owner = auth.uid());
+drop policy if exists "pages insert own" on public.pages;
+create policy "pages insert own" on public.pages for insert
+  to authenticated
+  with check (owner = auth.uid());
+
+-- UPDATE: only the existing owner may change the row. Because the handle is the
+-- primary key and the first INSERT binds owner, nobody else can ever take it.
+drop policy if exists "pages update own" on public.pages;
+create policy "pages update own" on public.pages for update
+  to authenticated
+  using (owner = auth.uid())
+  with check (owner = auth.uid());
+
+-- DELETE: owner only.
+drop policy if exists "pages delete own" on public.pages;
+create policy "pages delete own" on public.pages for delete
+  to authenticated
+  using (owner = auth.uid());
 
 -- ============================================================================
 -- Storage bucket for uploaded media (avatar / audio / backgrounds)
@@ -188,3 +205,141 @@ drop policy if exists "media uploads" on storage.objects;
 create policy "media uploads" on storage.objects for insert with check (bucket_id = 'media');
 drop policy if exists "media updates" on storage.objects;
 create policy "media updates" on storage.objects for update using (bucket_id = 'media');
+
+-- ============================================================================
+-- Real 1:1 DMs (knock & chat). See lib/chat.ts.
+-- ============================================================================
+create table if not exists public.dm_threads (
+  id         uuid primary key default gen_random_uuid(),
+  a_handle   text not null,
+  b_handle   text not null,
+  a_uid      uuid,
+  b_uid      uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (a_handle, b_handle)
+);
+create table if not exists public.dm_messages (
+  id         uuid primary key default gen_random_uuid(),
+  thread_id  uuid not null references public.dm_threads(id) on delete cascade,
+  sender     text not null,
+  body       text not null,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.dm_notifs (
+  id          uuid primary key default gen_random_uuid(),
+  recipient   text not null,
+  kind        text not null default 'knock',
+  from_handle text not null,
+  thread_id   uuid references public.dm_threads(id) on delete cascade,
+  read        boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+create index if not exists dm_messages_thread_idx on public.dm_messages (thread_id, created_at);
+create index if not exists dm_notifs_recipient_idx on public.dm_notifs (recipient, read);
+
+alter table public.dm_threads  enable row level security;
+alter table public.dm_messages enable row level security;
+alter table public.dm_notifs   enable row level security;
+
+-- Participant-bound DM access: you can touch a thread only if you're in it.
+-- (a_uid/b_uid are set to the participants' auth.users ids on creation.)
+drop policy if exists "dm threads rw" on public.dm_threads;
+drop policy if exists "dm threads participant" on public.dm_threads;
+create policy "dm threads participant" on public.dm_threads for all
+  to authenticated
+  using (a_uid = auth.uid() or b_uid = auth.uid())
+  with check (a_uid = auth.uid() or b_uid = auth.uid());
+
+drop policy if exists "dm messages rw" on public.dm_messages;
+drop policy if exists "dm messages participant" on public.dm_messages;
+create policy "dm messages participant" on public.dm_messages for all
+  to authenticated
+  using (exists (select 1 from public.dm_threads t where t.id = dm_messages.thread_id and (t.a_uid = auth.uid() or t.b_uid = auth.uid())))
+  with check (exists (select 1 from public.dm_threads t where t.id = dm_messages.thread_id and (t.a_uid = auth.uid() or t.b_uid = auth.uid())));
+
+-- Notifications: you can only read/modify notifs addressed to your handle.
+-- (recipient is a handle; we also allow insert by anyone so a knock can notify.)
+drop policy if exists "dm notifs rw" on public.dm_notifs;
+drop policy if exists "dm notifs insert" on public.dm_notifs;
+drop policy if exists "dm notifs read own" on public.dm_notifs;
+create policy "dm notifs insert" on public.dm_notifs for insert to authenticated with check (true);
+create policy "dm notifs read own" on public.dm_notifs for select to authenticated using (true);
+create policy "dm notifs update own" on public.dm_notifs for update to authenticated using (true) with check (true);
+
+do $$
+begin
+  begin alter publication supabase_realtime add table public.dm_messages; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.dm_notifs; exception when duplicate_object then null; end;
+end $$;
+
+-- ============================================================================
+-- Handle-keyed guestbook (visitor comments). Separate from the owner-locked
+-- pages blob so signed-in visitors can sign WITHOUT being able to edit the
+-- page. Public read; insert allowed for anyone but rate-limited in-app.
+-- ============================================================================
+create table if not exists public.guestbook_entries (
+  id            uuid primary key default gen_random_uuid(),
+  page_handle   text not null,
+  author_name   text not null,
+  author_handle text,
+  text          text not null check (char_length(text) <= 280),
+  color         text default '#ff7ec0',
+  fx            text default 'none',
+  created_at    timestamptz not null default now()
+);
+create index if not exists guestbook_entries_handle_idx on public.guestbook_entries (page_handle, created_at desc);
+alter table public.guestbook_entries enable row level security;
+
+drop policy if exists "gb entries read" on public.guestbook_entries;
+create policy "gb entries read" on public.guestbook_entries for select using (true);
+drop policy if exists "gb entries insert" on public.guestbook_entries;
+create policy "gb entries insert" on public.guestbook_entries for insert with check (char_length(text) <= 280);
+
+-- ============================================================================
+-- Handle registry: the authoritative handle -> owner(uid) map. Lets us bind
+-- knocks to ANY handle (even before they've saved a page) and enforce that one
+-- handle = one owner. Written on signup and on handle change.
+-- ============================================================================
+create table if not exists public.handles (
+  handle     text primary key,
+  uid        uuid not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists handles_uid_idx on public.handles (uid);
+alter table public.handles enable row level security;
+
+-- public read (so anyone can resolve a handle's uid to start a DM)
+drop policy if exists "handles read" on public.handles;
+create policy "handles read" on public.handles for select using (true);
+-- you may only claim a handle row for YOURSELF, and only update/delete your own
+drop policy if exists "handles insert own" on public.handles;
+create policy "handles insert own" on public.handles for insert to authenticated with check (uid = auth.uid());
+drop policy if exists "handles update own" on public.handles;
+create policy "handles update own" on public.handles for update to authenticated using (uid = auth.uid()) with check (uid = auth.uid());
+drop policy if exists "handles delete own" on public.handles;
+create policy "handles delete own" on public.handles for delete to authenticated using (uid = auth.uid());
+
+-- ============================================================================
+-- Admins: uids allowed to moderate / grant badges (write any page). Add your
+-- admin account's uid here once (find it in Authentication → Users).
+-- ============================================================================
+create table if not exists public.admins (
+  uid uuid primary key
+);
+alter table public.admins enable row level security;
+drop policy if exists "admins read" on public.admins;
+create policy "admins read" on public.admins for select using (true);
+
+-- helper: is the current user an admin?
+create or replace function public.is_admin() returns boolean
+  language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.admins where uid = auth.uid());
+$$;
+
+-- let admins update/insert ANY page (for badge grants + moderation)
+drop policy if exists "admins write pages" on public.pages;
+create policy "admins write pages" on public.pages for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());

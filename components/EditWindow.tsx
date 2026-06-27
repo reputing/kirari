@@ -6,6 +6,8 @@ import type { DesktopApi } from "@/lib/useDesktop";
 import type { TextFx, BgPattern, PfpShape } from "@/lib/types";
 import { nameStyleFor, bgFor } from "@/lib/styleHelpers";
 import { inputStyle, SectionLabel } from "./shared";
+import { THEME_METAS } from "@/lib/themes";
+import { isEmbeddable } from "@/lib/embeds";
 import { Icon, IconPicker } from "./Icon";
 import { uploadAsset } from "@/lib/store";
 
@@ -155,6 +157,55 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
         })}
       </div>
 
+      {/* page theme — independent of dashboard skin */}
+      <SectionLabel>✦ PAGE THEME (public only)</SectionLabel>
+      <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "8px" }}>this skins your biolink only — your dashboard stays however you like it.</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+        <button onClick={() => api.setProfileVal("pageTheme", undefined)} style={pageThemeBtn(!P.pageTheme)}>match dashboard</button>
+        {Object.entries(THEME_METAS).map(([id, t]) => (
+          <button key={id} onClick={() => api.setProfileVal("pageTheme", id)} style={pageThemeBtn(P.pageTheme === id)}>{t.name}</button>
+        ))}
+      </div>
+
+      {/* cinematic entrance */}
+      <SectionLabel>✦ ENTRANCE</SectionLabel>
+      <Slider label="entrance delay (sec)" value={Math.round((P.entranceDelay ?? 0) * 10) / 10} min={0} max={10} onChange={(v) => api.setProfileVal("entranceDelay", v)} />
+      <Slider label="stagger speed (ms)" value={P.staggerMs ?? 220} min={60} max={600} onChange={(v) => api.setProfileVal("staggerMs", v)} />
+      <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "4px 0 8px" }}>REVEAL STYLE</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+        {(["fade", "drop", "rise", "zoom", "glitch", "iris"] as const).map((s) => (
+          <button key={s} onClick={() => api.setProfileVal("entranceStyle", s)} style={pageThemeBtn((P.entranceStyle || "fade") === s)}>{s}</button>
+        ))}
+      </div>
+
+      {/* ambience + grade */}
+      <SectionLabel>✦ ATMOSPHERE</SectionLabel>
+      <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "0 0 6px" }}>FALLING AMBIENCE</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
+        {(["none", "petals", "rain", "snow", "embers", "orbs"] as const).map((a) => (
+          <button key={a} onClick={() => api.setProfileVal("ambience", a)} style={pageThemeBtn((P.ambience || "none") === a)}>{a}</button>
+        ))}
+      </div>
+      {P.ambience && P.ambience !== "none" && (
+        <Slider label="ambience density" value={P.ambienceDensity ?? 45} min={0} max={100} onChange={(v) => api.setProfileVal("ambienceDensity", v)} />
+      )}
+      <Slider label="vignette" value={P.vignette ?? 0} min={0} max={100} onChange={(v) => api.setProfileVal("vignette", v)} />
+      <Slider label="film grain" value={P.grain ?? 0} min={0} max={100} onChange={(v) => api.setProfileVal("grain", v)} />
+      <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "4px 0 8px" }}>COLOR GRADE</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+        {(["none", "noir", "sepia", "vhs", "bloom", "dream"] as const).map((g) => (
+          <button key={g} onClick={() => api.setProfileVal("grade", g)} style={pageThemeBtn((P.grade || "none") === g)}>{g}</button>
+        ))}
+      </div>
+
+      {/* card material */}
+      <SectionLabel>✦ CARD GLOW &amp; TEXT</SectionLabel>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+        <MiniToggle label="neon glow" on={!!P.neonGlow} onClick={() => api.setProfileVal("neonGlow", !P.neonGlow)} />
+        <MiniToggle label="gradient border" on={!!P.animatedBorder} onClick={() => api.setProfileVal("animatedBorder", !P.animatedBorder)} />
+        <MiniToggle label="outline name" on={!!P.outlineText} onClick={() => api.setProfileVal("outlineText", !P.outlineText)} />
+      </div>
+
       {/* avatar + audio uploads */}
       <SectionLabel>✦ AVATAR &amp; AUDIO</SectionLabel>
       <div style={{ marginBottom: "8px" }}>
@@ -295,20 +346,10 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
           <FieldLabel>DISPLAY NAME</FieldLabel>
           <input value={P.name} onChange={(e) => api.setP("name", e.target.value)} style={inputStyle} />
         </label>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <label style={{ flex: 1 }}>
-            <FieldLabel>HANDLE</FieldLabel>
-            <input value={P.handle} onChange={(e) => api.setP("handle", e.target.value)} style={inputStyle} />
-          </label>
-          <label style={{ flex: 1 }}>
-            <FieldLabel>PRONOUNS</FieldLabel>
-            <input
-              value={P.pronouns}
-              onChange={(e) => api.setP("pronouns", e.target.value)}
-              style={inputStyle}
-            />
-          </label>
-        </div>
+        <label style={{ display: "block" }}>
+          <FieldLabel>HANDLE</FieldLabel>
+          <input value={P.handle} onChange={(e) => api.setP("handle", e.target.value)} style={inputStyle} />
+        </label>
         <label style={{ display: "block" }}>
           <FieldLabel>BIO</FieldLabel>
           <textarea
@@ -379,6 +420,12 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
                 placeholder="https://… (where it links)"
                 style={{ width: "100%", background: "var(--panel)", border: "var(--border)", borderRadius: "calc(var(--radius) - 6px)", padding: "6px 9px", fontSize: "11.5px", color: "var(--ink)", outline: "none", fontFamily: "monospace" }}
               />
+            )}
+            {l.kind !== "guest" && isEmbeddable(l.url) && (
+              <label style={{ display: "flex", alignItems: "center", gap: "7px", cursor: "pointer", fontSize: "11.5px", color: "var(--ink)" }}>
+                <input type="checkbox" checked={!!l.embed} onChange={(e) => api.setLinkEmbed(l.id, e.target.checked)} style={{ accentColor: "var(--accent)" }} />
+                ▶ embed as a player (Spotify / YouTube / SoundCloud)
+              </label>
             )}
             {iconPickerFor === l.id && (
               <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 80, marginTop: "4px" }} onMouseDown={(e) => e.stopPropagation()}>
@@ -502,8 +549,11 @@ function FileRow({ label, accept, current, onFile, onClear, round, isAudio, kind
   async function pick(f: File) {
     setBusy(true);
     try {
-      const url = await uploadAsset(f, kind, handle || "me");
-      onFile(url);
+      const res = await uploadAsset(f, kind, handle || "me");
+      onFile(res.url);
+      if (res.temporary) alert("⚠ media storage isn't connected — this upload only works in your browser this session and won't show for visitors. paste a hosted URL for a permanent image.");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "upload failed");
     } finally {
       setBusy(false);
       if (ref.current) ref.current.value = "";
@@ -551,4 +601,9 @@ function Slider({ label, value, min, max, onChange }: { label: string; value: nu
       <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }} />
     </div>
   );
+}
+
+// Small pill button used by the page-theme / entrance / effects pickers.
+function pageThemeBtn(on: boolean): CSSProperties {
+  return { padding: "7px 12px", borderRadius: "999px", border: on ? "2px solid var(--accent)" : "var(--border)", background: on ? "var(--tab-active)" : "var(--panel-2)", color: "var(--ink)", cursor: "pointer", fontSize: "12px", fontWeight: on ? 700 : 400, textTransform: "capitalize" };
 }

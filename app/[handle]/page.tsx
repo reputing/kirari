@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useParams } from "next/navigation";
-import { loadPage, type PublishedPage } from "@/lib/store";
+import { loadPage, addGuestbookEntry, loadGuestbook, type PublishedPage } from "@/lib/store";
 import { getSession } from "@/lib/auth";
+import { knock } from "@/lib/chat";
 import { resolveThemeVars } from "@/lib/themes";
 import BioPageView from "@/components/BioPageView";
 import type { Profile } from "@/lib/types";
@@ -28,11 +29,41 @@ export default function PublicPage() {
   const [session, setSession] = useState<{ handle: string; isAdmin: boolean } | null>(null);
   useEffect(() => { getSession().then(setSession); }, []);
 
+  const [signOpen, setSignOpen] = useState(false);
+
   function gated(kind: "knock" | "sign") {
     if (session) {
-      alert(kind === "knock" ? "✦ knock sent! (chat coming soon)" : "✦ comment posted! (saving soon)");
+      if (kind === "sign") setSignOpen(true);
+      else doKnock();
     } else {
       setAuthPrompt(kind);
+    }
+  }
+
+  async function doKnock() {
+    if (!session) return;
+    const res = await knock(session.handle, handle);
+    if (res.ok) alert(`✦ you knocked on @${handle}'s door! check your chats — they'll see it too.`);
+    else alert(res.error || "couldn't knock right now");
+  }
+
+  async function postComment(text: string, color: string) {
+    if (!session || !page) return;
+    const entry = {
+      id: Date.now(),
+      person: session.handle,
+      name: session.handle,
+      text,
+      time: "just now",
+      color,
+      fx: "none" as const,
+    };
+    try {
+      const updated = await addGuestbookEntry(handle, entry);
+      if (updated) setPage({ ...page, guestbook: updated });
+      setSignOpen(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "couldn't post right now");
     }
   }
 
@@ -42,6 +73,11 @@ export default function PublicPage() {
       const p = await loadPage(handle);
       if (!alive) return;
       setPage(p); // null = unclaimed handle → 404 view
+      if (p) {
+        // merge visitor-signed guestbook entries (separate table) with seeded ones
+        const visitor = await loadGuestbook(handle);
+        if (visitor.length) setPage({ ...p, guestbook: [...visitor, ...(p.guestbook || [])].slice(0, 200) });
+      }
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -82,6 +118,7 @@ export default function PublicPage() {
             onSign={() => gated("sign")}
           />
           {authPrompt && <AuthPrompt kind={authPrompt} handle={handle} onClose={() => setAuthPrompt(null)} />}
+          {signOpen && session && <SignComposer onPost={postComment} onClose={() => setSignOpen(false)} />}
         </>
       )}
     </div>
@@ -89,6 +126,45 @@ export default function PublicPage() {
 }
 
 // ---- animated enter splash ----
+// Guestbook comment composer for signed-in visitors.
+function SignComposer({ onPost, onClose }: { onPost: (text: string, color: string) => void; onClose: () => void }) {
+  const [text, setText] = useState("");
+  const [color, setColor] = useState("#ff7ec0");
+  const palette = ["#ff7ec0", "#7cc0ff", "#67cbb0", "#c3a3ff", "#ffd36e", "#ff8fa0"];
+  const [busy, setBusy] = useState(false);
+  return (
+    <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(30,15,30,.42)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div onMouseDown={(e) => e.stopPropagation()} style={{ width: "360px", maxWidth: "100%", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", padding: "22px" }}>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: "17px", marginBottom: "10px", color: "var(--ink)" }}>✎ sign the guestbook</div>
+        <textarea
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, 280))}
+          placeholder="leave something nice ♡"
+          rows={3}
+          style={{ width: "100%", border: "var(--border)", borderRadius: "12px", background: "var(--panel-2)", padding: "10px 12px", fontSize: "13px", color: "var(--ink)", outline: "none", resize: "none", fontFamily: "var(--font-body)" }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: "7px", margin: "10px 0 14px" }}>
+          <span style={{ fontFamily: "var(--font-pixel)", fontSize: "9px", color: "var(--ink-soft)" }}>COLOR</span>
+          {palette.map((c) => (
+            <button key={c} onClick={() => setColor(c)} style={{ width: "20px", height: "20px", borderRadius: "50%", background: c, border: color === c ? "2px solid var(--ink)" : "2px solid transparent", cursor: "pointer" }} />
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "11px", border: "var(--border)", borderRadius: "var(--radius)", background: "var(--panel-2)", color: "var(--ink-soft)", cursor: "pointer", fontSize: "13px" }}>cancel</button>
+          <button
+            disabled={!text.trim() || busy}
+            onClick={() => { setBusy(true); onPost(text.trim(), color); }}
+            style={{ flex: 2, padding: "11px", border: "none", borderRadius: "var(--radius)", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14px", cursor: text.trim() ? "pointer" : "not-allowed", opacity: text.trim() && !busy ? 1 : 0.6, boxShadow: "var(--btn-shadow)" }}
+          >
+            {busy ? "posting…" : "post ♡"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // A gentle in-page sign-in prompt (no ugly redirect) for knock/comment.
 function AuthPrompt({ kind, handle, onClose }: { kind: "knock" | "sign"; handle: string; onClose: () => void }) {
   return (
@@ -230,13 +306,64 @@ function AudioToggle({ audioRef, profile }: { audioRef: React.RefObject<HTMLAudi
         <span style={{ fontFamily: "var(--font-display)", fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profile.audioTitle || "now playing"}</span>
         <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)" }}>{playing ? "♫ playing" : "paused"}</span>
       </span>
-      {playing && (
-        <span style={{ display: "flex", alignItems: "flex-end", gap: "2px", height: "14px", flex: "0 0 auto" }}>
-          {[0, 0.2, 0.4].map((d, i) => (
-            <span key={i} style={{ width: "3px", background: "var(--accent)", height: "100%", borderRadius: "2px", animation: `eq .8s ease-in-out ${d}s infinite` }} />
-          ))}
-        </span>
-      )}
+      {playing && <Visualizer audioRef={audioRef} />}
     </button>
+  );
+}
+
+// Real-time bars driven by the actual audio via WebAudio AnalyserNode.
+function Visualizer({ audioRef }: { audioRef: React.RefObject<HTMLAudioElement> }) {
+  const [levels, setLevels] = useState<number[]>([0.3, 0.3, 0.3, 0.3]);
+  const raf = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    let analyser: AnalyserNode | null = null;
+    let data: Uint8Array<ArrayBuffer> | null = null;
+    try {
+      // A MediaElementSource can be created ONCE per element, ever. Re-creating
+      // it throws and can permanently mute the element. Cache the audio graph on
+      // the element so remounts reuse it instead of rewiring.
+      const cached = (a as unknown as { _kirariAudio?: { ctx: AudioContext; analyser: AnalyserNode } })._kirariAudio;
+      let ctx: AudioContext;
+      if (cached) {
+        ctx = cached.ctx;
+        analyser = cached.analyser;
+      } else {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        ctx = new AC();
+        const src = ctx.createMediaElementSource(a);
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        src.connect(analyser);
+        analyser.connect(ctx.destination);
+        (a as unknown as { _kirariAudio?: unknown })._kirariAudio = { ctx, analyser };
+      }
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      data = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
+    } catch {
+      return; // wiring blocked (e.g. cross-origin) — bars stay idle, audio unaffected
+    }
+    const tick = () => {
+      if (analyser && data) {
+        analyser.getByteFrequencyData(data);
+        const bins = [2, 6, 11, 18];
+        setLevels(bins.map((b) => Math.max(0.15, (data![b] || 0) / 255)));
+      }
+      raf.current = requestAnimationFrame(tick);
+    };
+    tick();
+    // NOTE: we do NOT close the context on unmount — closing kills the cached
+    // graph and would mute the element. Just stop the animation loop.
+    return () => { if (raf.current) cancelAnimationFrame(raf.current); };
+  }, [audioRef]);
+
+  return (
+    <span style={{ display: "flex", alignItems: "flex-end", gap: "2px", height: "14px", flex: "0 0 auto" }}>
+      {levels.map((v, i) => (
+        <span key={i} style={{ width: "3px", background: "var(--accent)", height: `${Math.round(v * 100)}%`, borderRadius: "2px", transition: "height .08s linear" }} />
+      ))}
+    </span>
   );
 }

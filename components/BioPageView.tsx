@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { resolveThemeVars } from "@/lib/themes";
 import { nameStyleFor, bgFor, initOf } from "@/lib/styleHelpers";
 import { badgeById } from "@/lib/seed";
+import { toEmbed } from "@/lib/embeds";
 import { Icon } from "@/components/Icon";
 import type { Profile, GuestEntry, CustomTheme } from "@/lib/types";
 
@@ -39,29 +40,56 @@ export default function BioPageView({
   onSign?: () => void;
 }) {
   const P = data.profile;
-  const baseVars = resolveThemeVars(data.theme, data.customThemes);
+  // The biolink uses its OWN theme (profile.pageTheme) when set; otherwise it
+  // follows whatever theme was passed in. This is what decouples the public
+  // page's look from the dashboard skin.
+  const effectiveTheme = P.pageTheme || data.theme;
+  const baseVars = resolveThemeVars(effectiveTheme, data.customThemes);
   const themeVars: Record<string, string> = { ...baseVars };
   if (data.fontDisplay) themeVars["--font-display"] = data.fontDisplay;
   if (data.fontBody) themeVars["--font-body"] = data.fontBody;
   const views = P.counters.views;
 
-  // reveal staging: 0 = nothing, climbs as stages mount in
+  // ---- cinematic entrance: delay → staggered reveal in a chosen style ----
+  const delayMs = Math.round((P.entranceDelay ?? 0) * 1000);
+  const stagger = P.staggerMs ?? 220;
+  const style = P.entranceStyle || "fade";
   const [stage, setStage] = useState(animate ? 0 : 99);
   useEffect(() => {
-    if (!animate) return;
-    const timers = [120, 360, 600, 840, 1080].map((ms, i) =>
-      setTimeout(() => setStage((s) => Math.max(s, i + 1)), ms)
+    if (!animate) { setStage(99); return; }
+    setStage(0);
+    // 5 stages: background, avatar, name/card, links, guestbook
+    const timers = [0, 1, 2, 3, 4].map((i) =>
+      setTimeout(() => setStage((s) => Math.max(s, i + 1)), delayMs + i * stagger)
     );
     return () => timers.forEach(clearTimeout);
-  }, [animate]);
+  }, [animate, delayMs, stagger]);
 
-  const reveal = (order: number): CSSProperties => ({
-    opacity: stage >= order ? 1 : 0,
-    transform: stage >= order ? "translateY(0) scale(1)" : "translateY(14px) scale(.98)",
-    transition: "opacity .55s cubic-bezier(.2,.7,.2,1), transform .55s cubic-bezier(.2,.7,.2,1)",
-  });
+  // hidden transform per entrance style
+  function hiddenTransform(): string {
+    switch (style) {
+      case "drop": return "translateY(-28px) scale(.98)";
+      case "rise": return "translateY(28px) scale(.98)";
+      case "zoom": return "scale(.82)";
+      case "glitch": return "translateX(-8px) skewX(6deg)";
+      case "iris": return "scale(.6)";
+      default: return "translateY(14px) scale(.98)";
+    }
+  }
+  const reveal = (order: number): CSSProperties => {
+    const shown = stage >= order;
+    return {
+      opacity: shown ? 1 : 0,
+      transform: shown ? "translateY(0) scale(1)" : hiddenTransform(),
+      filter: style === "glitch" && !shown ? "blur(2px)" : "none",
+      clipPath: style === "iris" ? (shown ? "circle(150% at 50% 50%)" : "circle(0% at 50% 50%)") : undefined,
+      transition: "opacity .55s cubic-bezier(.2,.7,.2,1), transform .55s cubic-bezier(.2,.7,.2,1), clip-path .6s ease, filter .4s ease",
+    };
+  };
 
   const Wrapper = embedded ? "div" : "div";
+
+  const gradeFilter = gradeCss(P.grade);
 
   return (
     <Wrapper
@@ -76,7 +104,10 @@ export default function BioPageView({
         fontFamily: "var(--font-body)",
       }}
     >
-      <PageBackground profile={P} embedded={embedded} show={stage >= 1} />
+      <div style={{ position: embedded ? "absolute" : "fixed", inset: 0, zIndex: 0, filter: gradeFilter, pointerEvents: "none" }}>
+        <PageBackground profile={P} embedded={embedded} show={stage >= 1} />
+      </div>
+      <EffectsOverlay profile={P} embedded={embedded} show={stage >= 1} />
 
       <main
         style={{
@@ -192,6 +223,10 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
     if (cardRef.current) cardRef.current.style.transform = "perspective(800px) rotateX(0) rotateY(0)";
   }
   const idleAnim: CSSProperties = P.cardAnim === "float" ? { animation: "cardfloat 5s ease-in-out infinite" } : P.cardAnim === "pulse" ? { animation: "cardpulse 3.5s ease-in-out infinite" } : {};
+  const neon: CSSProperties = P.neonGlow ? { boxShadow: "0 0 22px -2px var(--accent), 0 0 50px -10px var(--accent)" } : {};
+  const animBorder: CSSProperties = P.animatedBorder
+    ? { border: "2px solid transparent", backgroundImage: "linear-gradient(var(--panel),var(--panel)), conic-gradient(from 0deg, var(--accent), color-mix(in srgb, var(--accent) 30%, #fff), var(--accent))", backgroundOrigin: "border-box", backgroundClip: "padding-box, border-box" }
+    : {};
 
   return (
     <div
@@ -200,6 +235,8 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
       onMouseLeave={onLeave}
       style={{
         ...surface(P, { borderRadius: "var(--radius)" }),
+        ...neon,
+        ...animBorder,
         ...reveal(3),
         ...idleAnim,
         width: "100%",
@@ -234,10 +271,9 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
         )}
       </div>
 
-      <h1 style={{ margin: 0, ...nameStyleFor(P.textFx, 30), ...textGlow }}>{P.name}</h1>
+      <h1 style={{ margin: 0, ...nameStyleFor(P.textFx, 30), ...textGlow, ...(P.outlineText ? { WebkitTextStroke: "1.5px rgba(0,0,0,.55)", paintOrder: "stroke fill" } as CSSProperties : {}) }}>{P.name}</h1>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", flexWrap: "wrap", justifyContent: "center" }}>
         <span style={{ fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow }}>@{P.handle}</span>
-        {P.pronouns && <span style={{ fontSize: "10px", padding: "2px 9px", borderRadius: "999px", border: "var(--border)", color: "var(--ink-soft)" }}>{P.pronouns}</span>}
       </div>
 
       {/* badges */}
@@ -246,8 +282,9 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
           {P.badges.map((bid) => {
             const b = badgeById(bid);
             if (!b) return null;
+            const color = (P.badgeColors && P.badgeColors[bid]) || b.color;
             return (
-              <span key={bid} title={b.label} style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 9px", borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, color: "#fff", background: b.color, boxShadow: "0 2px 6px -2px " + b.color }}>
+              <span key={bid} title={b.label} style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 9px", borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, color: "#fff", background: color, boxShadow: "0 2px 6px -2px " + color }}>
                 <span style={{ fontSize: "10px" }}>{b.icon}</span>{b.label}
               </span>
             );
@@ -321,6 +358,25 @@ function Links({ profile, onSign }: { profile: Profile; onSign?: () => void }) {
             color: "var(--ink)",
             cursor: "pointer",
           };
+          const embed = l.embed ? toEmbed(l.url) : null;
+          if (embed) {
+            return (
+              <div key={l.id} style={{ ...surface(profile, { background: profile.cardless ? "color-mix(in srgb, var(--panel) 80%, transparent)" : "var(--panel-2)" }), borderRadius: "var(--radius)", overflow: "hidden", padding: "0" }}>
+                <iframe
+                  src={embed.src}
+                  width="100%"
+                  height={embed.height}
+                  frameBorder="0"
+                  loading="lazy"
+                  sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                  referrerPolicy="no-referrer"
+                  allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"
+                  style={{ display: "block", border: "none" }}
+                  title={l.label || embed.provider}
+                />
+              </div>
+            );
+          }
           return l.url && l.kind !== "guest" ? (
             <a key={l.id} href={l.url} target="_blank" rel="noreferrer" style={cardStyle}>{inner}</a>
           ) : (
@@ -356,5 +412,51 @@ function Guestbook({ entries, profile, onSign }: { entries: GuestEntry[]; profil
         ✎ sign the guestbook
       </button>
     </div>
+  );
+}
+
+// Color-grade filter applied over the whole background.
+function gradeCss(grade?: string): string {
+  switch (grade) {
+    case "noir": return "grayscale(1) contrast(1.15) brightness(.95)";
+    case "sepia": return "sepia(.55) contrast(1.05) saturate(1.1)";
+    case "vhs": return "saturate(1.4) contrast(1.1) hue-rotate(-8deg)";
+    case "bloom": return "brightness(1.12) saturate(1.2) blur(.3px)";
+    case "dream": return "saturate(1.25) brightness(1.05) contrast(.95) blur(.4px)";
+    default: return "none";
+  }
+}
+
+// Ambience particles + vignette + film grain overlays.
+function EffectsOverlay({ profile, embedded, show }: { profile: Profile; embedded: boolean; show: boolean }) {
+  const P = profile;
+  const pos: CSSProperties = { position: embedded ? "absolute" : "fixed", inset: 0, pointerEvents: "none" };
+  const density = Math.max(0, Math.min(100, P.ambienceDensity ?? 45));
+  const count = P.ambience && P.ambience !== "none" ? Math.round(8 + (density / 100) * 36) : 0;
+  const glyph = P.ambience === "petals" ? "❀" : P.ambience === "snow" ? "❄" : P.ambience === "embers" ? "•" : P.ambience === "orbs" ? "●" : P.ambience === "rain" ? "|" : "";
+  const color = P.ambience === "embers" ? "#ff9a4d" : P.ambience === "snow" ? "#fff" : P.ambience === "orbs" ? "var(--accent)" : P.ambience === "rain" ? "rgba(180,200,255,.6)" : "var(--deco, #ffb8da)";
+
+  return (
+    <>
+      {count > 0 && (
+        <div style={{ ...pos, zIndex: 1, opacity: show ? 1 : 0, transition: "opacity 1s ease", overflow: "hidden" }}>
+          {Array.from({ length: count }).map((_, i) => {
+            const left = (i * 47 + 13) % 100;
+            const dur = 6 + ((i * 7) % 9);
+            const delay = -((i * 13) % 12);
+            const size = P.ambience === "rain" ? 14 + (i % 3) * 6 : 8 + (i % 5) * 4;
+            return (
+              <span key={i} style={{ position: "absolute", left: left + "%", top: "-6%", fontSize: size + "px", color, opacity: 0.7, textShadow: P.ambience === "embers" ? "0 0 6px #ff7a2d" : "none", animation: `fall ${dur}s linear ${delay}s infinite` }}>{glyph}</span>
+            );
+          })}
+        </div>
+      )}
+      {!!P.vignette && P.vignette > 0 && (
+        <div style={{ ...pos, zIndex: 2, boxShadow: `inset 0 0 ${80 + P.vignette * 2}px ${20 + P.vignette}px rgba(0,0,0,${(P.vignette / 100) * 0.85})` }} />
+      )}
+      {!!P.grain && P.grain > 0 && (
+        <div style={{ ...pos, zIndex: 2, opacity: (P.grain / 100) * 0.5, mixBlendMode: "overlay", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E\")" }} />
+      )}
+    </>
   );
 }

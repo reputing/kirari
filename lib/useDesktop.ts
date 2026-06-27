@@ -77,10 +77,11 @@ export interface DesktopApi {
   togglePinWin: (type: string) => void;
 
   // profile edit
-  setP: (k: "name" | "handle" | "pronouns" | "bio", v: string) => void;
+  setP: (k: "name" | "handle" | "bio", v: string) => void;
   setProfileVal: (k: string, v: unknown) => void;
   setLinkLabel: (id: string, v: string) => void;
   setLinkField: (id: string, field: "icon" | "url" | "meta" | "emoji", v: string) => void;
+  setLinkEmbed: (id: string, on: boolean) => void;
   moveLink: (id: string, d: number) => void;
   removeLink: (id: string) => void;
   addLink: () => void;
@@ -772,7 +773,7 @@ export function useDesktop(): DesktopApi {
   }, []);
 
   // ----------------------------------------------------------- profile edit
-  const setP = useCallback((k: "name" | "handle" | "pronouns" | "bio", v: string) => {
+  const setP = useCallback((k: "name" | "handle" | "bio", v: string) => {
     const val = k === "handle" ? v.replace(/\s+/g, "") : v;
     setState((s) => ({ ...s, profile: { ...s.profile, [k]: val } }));
   }, []);
@@ -794,6 +795,15 @@ export function useDesktop(): DesktopApi {
       profile: {
         ...s.profile,
         links: s.profile.links.map((l) => (l.id === id ? { ...l, [field]: v } : l)),
+      },
+    }));
+  }, []);
+  const setLinkEmbed = useCallback((id: string, on: boolean) => {
+    setState((s) => ({
+      ...s,
+      profile: {
+        ...s.profile,
+        links: s.profile.links.map((l) => (l.id === id ? { ...l, embed: on } : l)),
       },
     }));
   }, []);
@@ -1035,6 +1045,7 @@ export function useDesktop(): DesktopApi {
     setProfileVal,
     setLinkLabel,
     setLinkField,
+    setLinkEmbed,
     moveLink,
     removeLink,
     addLink,
