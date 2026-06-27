@@ -38,9 +38,10 @@ export function validHandle(h: string): boolean {
   const n = norm(h);
   return n.length >= 3 && n.length <= 32;
 }
-// kirari uses a real domain for the internal auth email mapping (Supabase
-// rejects some reserved TLDs like .local). The user never sees or types this.
-const AUTH_EMAIL_DOMAIN = "users.kirari.cafe";
+// kirari maps handle -> handle@<domain> internally for Supabase Auth (the user
+// never sees or types this). We use the RFC-2606 reserved domain example.com,
+// which every email validator accepts, so signups never fail validation.
+const AUTH_EMAIL_DOMAIN = "example.com";
 function emailFor(handle: string) {
   return norm(handle) + "@" + AUTH_EMAIL_DOMAIN;
 }
