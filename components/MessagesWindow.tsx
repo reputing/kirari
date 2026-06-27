@@ -66,6 +66,49 @@ export default function MessagesWindow({ api }: { api: DesktopApi }) {
       >
         ＋ new group chat
       </button>
+      <button
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "7px",
+          width: "100%",
+          padding: "9px",
+          background: "var(--panel-2)",
+          color: "var(--ink)",
+          border: "var(--border)",
+          borderRadius: "var(--radius)",
+          fontFamily: "var(--font-display)",
+          fontSize: "12.5px",
+          cursor: "pointer",
+          marginBottom: "12px",
+        }}
+        onClick={() => api.openWindow("requests")}
+      >
+        ♥ friend requests
+        {(() => {
+          const n = state.requests.filter((r) => r.dir === "in").length;
+          return n ? (
+            <span
+              style={{
+                background: "var(--accent)",
+                color: "var(--on-accent)",
+                fontFamily: "var(--font-pixel)",
+                fontSize: "9px",
+                minWidth: "16px",
+                height: "16px",
+                padding: "0 5px",
+                borderRadius: "999px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {n}
+            </span>
+          ) : null;
+        })()}
+      </button>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "9px" }}>
         <span
           style={{

@@ -1,10 +1,13 @@
 "use client";
 
+import { useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { DesktopApi } from "@/lib/useDesktop";
 import type { TextFx, BgPattern, PfpShape } from "@/lib/types";
 import { nameStyleFor, bgFor } from "@/lib/styleHelpers";
 import { inputStyle, SectionLabel } from "./shared";
+import { Icon, IconPicker } from "./Icon";
+import { uploadAsset } from "@/lib/store";
 
 const BGS: [BgPattern, string][] = [
   ["none", "plain"],
@@ -40,6 +43,7 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
   const { state } = api;
   const P = state.profile;
   const hasDeco = P.deco !== "none" && !!P.deco;
+  const [iconPickerFor, setIconPickerFor] = useState<string | null>(null);
 
   const pfpPreview: CSSProperties = {
     position: "relative",
@@ -83,6 +87,70 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
           </button>
         ))}
       </div>
+
+      {/* page style: background type + media + card style */}
+      <SectionLabel>✦ PAGE STYLE (public)</SectionLabel>
+      <div style={{ display: "flex", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
+        {(["pattern", "color", "image", "video"] as const).map((t) => {
+          const on = (P.pageBgType || "pattern") === t;
+          return (
+            <button
+              key={t}
+              onClick={() => api.setProfileVal("pageBgType", t)}
+              style={{ flex: 1, minWidth: "64px", padding: "8px 6px", borderRadius: "12px", border: on ? "2px solid var(--accent)" : "var(--border)", background: on ? "var(--tab-active)" : "var(--panel-2)", color: "var(--ink)", cursor: "pointer", fontSize: "12px", fontWeight: on ? 700 : 400 }}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>
+
+      {(P.pageBgType || "pattern") === "color" && (
+        <label style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+          <input type="color" value={/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test((P.pageBgColor || "").trim()) ? P.pageBgColor : "#ffe6f3"} onChange={(e) => api.setProfileVal("pageBgColor", e.target.value)} style={{ width: "30px", height: "30px", border: "var(--border)", borderRadius: "8px", padding: 0, cursor: "pointer", background: "none" }} />
+          <span style={{ fontSize: "12.5px" }}>solid background color</span>
+        </label>
+      )}
+
+      {((P.pageBgType === "image") || (P.pageBgType === "video")) && (
+        <div style={{ marginBottom: "10px" }}>
+          <FileRow
+            label={P.pageBgType === "video" ? "upload background video" : "upload background image"}
+            accept={P.pageBgType === "video" ? "video/*" : "image/*"}
+            current={P.pageBgUrl}
+            kind="bg"
+            handle={P.handle}
+            onFile={(url) => api.setProfileVal("pageBgUrl", url)}
+            onClear={() => api.setProfileVal("pageBgUrl", undefined)}
+          />
+          <input
+            value={P.pageBgUrl && P.pageBgUrl.startsWith("blob:") ? "" : (P.pageBgUrl || "")}
+            onChange={(e) => api.setProfileVal("pageBgUrl", e.target.value || undefined)}
+            placeholder="…or paste a URL"
+            style={{ ...inputStyle, marginTop: "6px", fontSize: "12px" }}
+          />
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+        <MiniToggle label="translucent card" on={!!P.translucent} disabled={!!P.cardless} onClick={() => api.setProfileVal("translucent", !P.translucent)} />
+        <MiniToggle label="no card (bare)" on={!!P.cardless} onClick={() => api.setProfileVal("cardless", !P.cardless)} />
+      </div>
+
+      {/* avatar + audio uploads */}
+      <SectionLabel>✦ AVATAR &amp; AUDIO</SectionLabel>
+      <div style={{ marginBottom: "8px" }}>
+        <FileRow label="upload avatar image" accept="image/*" current={P.pfpUrl} kind="avatar" handle={P.handle} onFile={(url) => api.setProfileVal("pfpUrl", url)} onClear={() => api.setProfileVal("pfpUrl", undefined)} round />
+      </div>
+      <div style={{ marginBottom: "8px" }}>
+        <FileRow label="upload page audio (plays on visit)" accept="audio/*" current={P.audioUrl} kind="audio" handle={P.handle} isAudio onFile={(url) => api.setProfileVal("audioUrl", url)} onClear={() => api.setProfileVal("audioUrl", undefined)} />
+      </div>
+      <input
+        value={P.audioTitle || ""}
+        onChange={(e) => api.setProfileVal("audioTitle", e.target.value)}
+        placeholder="track title (shown in the player)"
+        style={{ ...inputStyle, marginBottom: "16px", fontSize: "12.5px" }}
+      />
 
       {/* portrait */}
       <SectionLabel>✦ PORTRAIT</SectionLabel>
@@ -242,63 +310,63 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
             key={l.id}
             style={{
               display: "flex",
-              alignItems: "center",
-              gap: "7px",
+              flexDirection: "column",
+              gap: "6px",
               background: "var(--panel-2)",
               border: "var(--border)",
               borderRadius: "var(--radius)",
-              padding: "7px 9px",
+              padding: "8px 9px",
+              position: "relative",
             }}
           >
-            <span
-              style={{
-                width: "28px",
-                height: "28px",
-                flex: "0 0 auto",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "15px",
-                background: "var(--accent)",
-                color: "var(--on-accent)",
-                borderRadius: "calc(var(--radius) - 8px)",
-              }}
-            >
-              {l.emoji}
-            </span>
-            <input
-              value={l.label}
-              onChange={(e) => api.setLinkLabel(l.id, e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                background: "var(--panel)",
-                border: "var(--border)",
-                borderRadius: "calc(var(--radius) - 6px)",
-                padding: "6px 9px",
-                fontSize: "12.5px",
-                color: "var(--ink)",
-                outline: "none",
-              }}
-            />
-            <SmallBtn onClick={() => api.moveLink(l.id, -1)}>↑</SmallBtn>
-            <SmallBtn onClick={() => api.moveLink(l.id, 1)}>↓</SmallBtn>
-            <button
-              style={{
-                width: "26px",
-                height: "26px",
-                flex: "0 0 auto",
-                border: "var(--border)",
-                background: "var(--panel)",
-                borderRadius: "6px",
-                cursor: "pointer",
-                color: "var(--accent)",
-                fontSize: "12px",
-              }}
-              onClick={() => api.removeLink(l.id)}
-            >
-              ✕
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+              <button
+                onClick={() => setIconPickerFor(iconPickerFor === l.id ? null : l.id)}
+                title="choose icon"
+                style={{
+                  width: "30px",
+                  height: "30px",
+                  flex: "0 0 auto",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "var(--accent)",
+                  color: "var(--on-accent)",
+                  border: "none",
+                  borderRadius: "calc(var(--radius) - 8px)",
+                  cursor: "pointer",
+                }}
+              >
+                {l.icon ? <Icon id={l.icon} size={16} /> : <span style={{ fontSize: "15px" }}>{l.emoji}</span>}
+              </button>
+              <input
+                value={l.label}
+                onChange={(e) => api.setLinkLabel(l.id, e.target.value)}
+                placeholder="link title"
+                style={{ flex: 1, minWidth: 0, background: "var(--panel)", border: "var(--border)", borderRadius: "calc(var(--radius) - 6px)", padding: "6px 9px", fontSize: "12.5px", color: "var(--ink)", outline: "none" }}
+              />
+              <SmallBtn onClick={() => api.moveLink(l.id, -1)}>↑</SmallBtn>
+              <SmallBtn onClick={() => api.moveLink(l.id, 1)}>↓</SmallBtn>
+              <button
+                style={{ width: "26px", height: "26px", flex: "0 0 auto", border: "var(--border)", background: "var(--panel)", borderRadius: "6px", cursor: "pointer", color: "var(--accent)", fontSize: "12px" }}
+                onClick={() => api.removeLink(l.id)}
+              >
+                ✕
+              </button>
+            </div>
+            {l.kind !== "guest" && (
+              <input
+                value={l.url || ""}
+                onChange={(e) => api.setLinkField(l.id, "url", e.target.value)}
+                placeholder="https://… (where it links)"
+                style={{ width: "100%", background: "var(--panel)", border: "var(--border)", borderRadius: "calc(var(--radius) - 6px)", padding: "6px 9px", fontSize: "11.5px", color: "var(--ink)", outline: "none", fontFamily: "monospace" }}
+              />
+            )}
+            {iconPickerFor === l.id && (
+              <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 80, marginTop: "4px" }} onMouseDown={(e) => e.stopPropagation()}>
+                <IconPicker onPick={(id) => api.setLinkField(l.id, "icon", id)} onClose={() => setIconPickerFor(null)} />
+              </div>
+            )}
           </div>
         ))}
         <button
@@ -322,6 +390,23 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
           marginTop: "16px",
           width: "100%",
           padding: "12px",
+          background: "var(--panel-2)",
+          color: "var(--ink)",
+          border: "var(--border)",
+          borderRadius: "var(--radius)",
+          fontFamily: "var(--font-display)",
+          fontSize: "14px",
+          cursor: "pointer",
+        }}
+        onClick={() => api.openWindow("profile")}
+      >
+        ◱ preview in dashboard
+      </button>
+      <button
+        style={{
+          width: "100%",
+          marginTop: "8px",
+          padding: "12px",
           background: "var(--accent)",
           color: "var(--on-accent)",
           border: "none",
@@ -331,9 +416,11 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
           cursor: "pointer",
           boxShadow: "var(--btn-shadow)",
         }}
-        onClick={() => api.openWindow("profile")}
+        onClick={() => {
+          if (typeof window !== "undefined" && P.handle) window.open("/" + P.handle, "_blank");
+        }}
       >
-        save &amp; view my page ♡
+        view my live page ↗
       </button>
     </div>
   );
@@ -383,6 +470,54 @@ function SmallBtn({ children, onClick }: { children: string; onClick: () => void
       onClick={onClick}
     >
       {children}
+    </button>
+  );
+}
+
+// Upload a file via the store (Supabase Storage when configured, else object
+// URL) → resulting URL. Shows current state + clear button.
+function FileRow({ label, accept, current, onFile, onClear, round, isAudio, kind, handle }: { label: string; accept: string; current?: string; onFile: (url: string) => void; onClear: () => void; round?: boolean; isAudio?: boolean; kind: "avatar" | "audio" | "bg"; handle: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const has = !!current;
+  const isImg = accept.startsWith("image");
+  async function pick(f: File) {
+    setBusy(true);
+    try {
+      const url = await uploadAsset(f, kind, handle || "me");
+      onFile(url);
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = "";
+    }
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)" }}>
+      <input ref={ref} type="file" accept={accept} hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) pick(f); }} />
+      {has && isImg ? (
+        <span style={{ width: "34px", height: "34px", flex: "0 0 auto", borderRadius: round ? "50%" : "8px", background: `center/cover url(${current})`, border: "var(--border)" }} />
+      ) : (
+        <span style={{ width: "34px", height: "34px", flex: "0 0 auto", borderRadius: round ? "50%" : "8px", background: "var(--panel-2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", color: "var(--ink-soft)" }}>{isAudio ? "♪" : isImg ? "🖼" : "🎞"}</span>
+      )}
+      <button onClick={() => ref.current?.click()} disabled={busy} style={{ flex: 1, textAlign: "left", border: "none", background: "transparent", cursor: busy ? "wait" : "pointer", fontSize: "12.5px", color: "var(--ink)", fontWeight: 600 }}>
+        {busy ? "uploading…" : has ? "replace ✦" : label}
+      </button>
+      {has && !busy && (
+        <button onClick={onClear} title="remove" style={{ border: "var(--border)", background: "var(--panel-2)", borderRadius: "6px", width: "24px", height: "24px", cursor: "pointer", color: "var(--ink-soft)", fontSize: "11px", flex: "0 0 auto" }}>✕</button>
+      )}
+    </div>
+  );
+}
+
+// A compact pill toggle used for translucent / cardless.
+function MiniToggle({ label, on, onClick, disabled }: { label: string; on: boolean; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={() => { if (!disabled) onClick(); }}
+      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", padding: "9px 8px", borderRadius: "12px", border: on ? "2px solid var(--accent)" : "var(--border)", background: on ? "var(--tab-active)" : "var(--panel-2)", color: disabled ? "var(--ink-soft)" : "var(--ink)", cursor: disabled ? "not-allowed" : "pointer", fontSize: "12px", fontWeight: on ? 700 : 400, opacity: disabled ? 0.5 : 1 }}
+    >
+      <span style={{ width: "13px", height: "13px", borderRadius: "4px", border: on ? "none" : "2px solid var(--line)", background: on ? "var(--accent)" : "transparent", color: "var(--on-accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9px" }}>{on ? "✓" : ""}</span>
+      {label}
     </button>
   );
 }

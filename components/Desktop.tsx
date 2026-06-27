@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import type { CSSProperties } from "react";
 import { useDesktop } from "@/lib/useDesktop";
-import { THEMES } from "@/lib/themes";
+import { resolveThemeVars } from "@/lib/themes";
 import { KEYFRAMES } from "@/lib/styleHelpers";
 import WindowFrame, { winMeta } from "./WindowFrame";
 import Onboarding from "./Onboarding";
+import DesktopIcons, { type IconDef } from "./DesktopIcons";
+import ContextMenu, { type MenuItem } from "./ContextMenu";
 
 const DOCK_W = 76;
 const TASK_H = 40;
@@ -16,7 +19,8 @@ const MOB_DOCK_H = 66;
 export default function Desktop() {
   const api = useDesktop();
   const s = api.state;
-  const T = THEMES[s.theme] || THEMES.sugar;
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const themeVars = resolveThemeVars(s.theme, s.customThemes);
   const mobile = s.isMobile;
   const isAngel = s.theme === "angel";
   const isOstan = s.theme === "ostan";
@@ -30,12 +34,12 @@ export default function Desktop() {
     backgroundAttachment: "fixed",
     color: "var(--ink)",
     fontFamily: "var(--font-body)",
-    ...(T.vars as CSSProperties),
+    ...(themeVars as CSSProperties),
   };
 
   const deskStyle: CSSProperties = {
     position: "absolute",
-    left: mobile ? 0 : DOCK_W + "px",
+    left: 0,
     top: 0,
     right: 0,
     bottom: mobile ? MOB_DOCK_H + "px" : TASK_H + "px",
@@ -53,15 +57,12 @@ export default function Desktop() {
       focusedId = w.id;
     }
   });
-  const noWindows = mobile ? focusedId === null : vis.length === 0;
-  const emptyHint = mobile
-    ? "✦ tap an app below to open it ✦"
-    : "✦ pick an app from the dock — then drag windows anywhere ♡ ✦";
-
   // unread totals
   const msgUnread = Object.values(s.convos).reduce((a, c) => a + (c.unread || 0), 0);
   const notifUnread = s.notifs.filter((n) => n.unread).length;
+  const reqIncoming = s.requests.filter((r) => r.dir === "in").length;
   const isOpen = (type: string) => s.windows.some((w) => w.type === type && !w.min);
+  const hasWin = (type: string) => s.windows.some((w) => w.type === type);
 
   const badgeStyle: CSSProperties = {
     position: "absolute",
@@ -80,15 +81,80 @@ export default function Desktop() {
     justifyContent: "center",
   };
 
-  const dockDefs: { id: string; icon: string; label: string; badge?: number; open: () => void }[] = [
+  const appDefs: IconDef[] = [
     { id: "profile", icon: "❀", label: "page", open: () => api.openWindow("profile") },
     { id: "messages", icon: "✉", label: "chats", badge: msgUnread || 0, open: () => api.openWindow("messages") },
     { id: "guestbook", icon: "★", label: "guest", open: () => api.openWindow("guestbook") },
     { id: "notifs", icon: "♡", label: "alerts", badge: notifUnread || 0, open: () => api.openWindow("notifs") },
+    { id: "requests", icon: "♥", label: "friends", badge: reqIncoming || 0, open: () => api.openWindow("requests") },
     { id: "newgroup", icon: "＋", label: "group", open: () => api.openWindow("newgroup") },
     { id: "edit", icon: "✎", label: "edit", open: () => api.openWindow("edit") },
     { id: "settings", icon: "⚙", label: "skins", open: () => api.openWindow("settings") },
   ];
+
+  // pinned favourites float to the top of the dock, in pin order
+  const orderedDock = [...appDefs].sort((a, b) => {
+    const pa = s.pinnedApps.indexOf(a.id);
+    const pb = s.pinnedApps.indexOf(b.id);
+    if (pa !== -1 && pb !== -1) return pa - pb;
+    if (pa !== -1) return -1;
+    if (pb !== -1) return 1;
+    return 0;
+  });
+  const firstUnpinnedIdx = orderedDock.findIndex((d) => !s.pinnedApps.includes(d.id));
+
+  // ---- context menu builders ----
+  const appById = (id: string) => appDefs.find((a) => a.id === id);
+  function openDesktopMenu(e: React.MouseEvent) {
+    if (mobile) return;
+    e.preventDefault();
+    const visN = s.windows.filter((w) => !w.min).length;
+    const items: MenuItem[] = [
+      { label: "tile windows", icon: "▦", onClick: api.tileWindows, disabled: visN < 1 },
+      { label: "cascade windows", icon: "▤", onClick: api.cascadeWindows, disabled: visN < 1 },
+      { divider: true, label: "" },
+      { label: "open page", icon: "❀", onClick: () => api.openWindow("profile") },
+      { label: "open chats", icon: "✉", onClick: () => api.openWindow("messages") },
+      { label: "edit my page", icon: "✎", onClick: () => api.openWindow("edit") },
+      { label: "skins & settings", icon: "⚙", onClick: () => api.openWindow("settings") },
+    ];
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  }
+  function openIconMenu(e: React.MouseEvent, def: IconDef) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pinned = s.pinnedApps.includes(def.id);
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: "open", icon: "▸", onClick: def.open },
+        { label: pinned ? "unpin from dock" : "pin to dock", icon: "✦", checked: pinned, onClick: () => api.togglePinApp(def.id) },
+      ],
+    });
+  }
+  function openWindowMenu(e: React.MouseEvent, winId: string) {
+    if (mobile) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const w = s.windows.find((x) => x.id === winId);
+    if (!w) return;
+    const pinned = s.pinnedWins.includes(w.type);
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: w.max ? "restore" : "maximize", icon: "▢", onClick: () => api.toggleMax(winId) },
+        { label: "minimize", icon: "–", onClick: () => api.minimizeWindow(winId) },
+        { divider: true, label: "" },
+        { label: "tile all windows", icon: "▦", onClick: api.tileWindows },
+        { label: "cascade all windows", icon: "▤", onClick: api.cascadeWindows },
+        { divider: true, label: "" },
+        { label: pinned ? "unpin from taskbar" : "pin to taskbar", icon: "✦", checked: pinned, onClick: () => api.togglePinWin(w.type) },
+        { label: "close", icon: "✕", onClick: () => api.closeWindow(winId) },
+      ],
+    });
+  }
 
   const dockStyle: CSSProperties = mobile
     ? {
@@ -224,7 +290,8 @@ export default function Desktop() {
         )}
       </div>
 
-      {/* DOCK */}
+      {/* DOCK (mobile only — desktop uses free-floating icons) */}
+      {mobile && (
       <div style={dockStyle}>
         {!mobile && (
           <div
@@ -239,8 +306,11 @@ export default function Desktop() {
             ✦
           </div>
         )}
-        {dockDefs.map((dd) => {
+        {orderedDock.map((dd, idx) => {
           const open = isOpen(dd.id);
+          const running = hasWin(dd.id);
+          const pinned = s.pinnedApps.includes(dd.id);
+          const showSep = !mobile && idx === firstUnpinnedIdx && firstUnpinnedIdx > 0;
           const btnStyle: CSSProperties = {
             position: "relative",
             display: "flex",
@@ -260,56 +330,110 @@ export default function Desktop() {
             fontFamily: "var(--font-body)",
           };
           return (
-            <button key={dd.id} style={btnStyle} onClick={dd.open} title={dd.label}>
-              <span style={{ fontSize: "18px", lineHeight: 1 }}>{dd.icon}</span>
-              <span
-                style={{
-                  fontSize: "8.5px",
-                  fontFamily: "var(--font-pixel)",
-                  letterSpacing: "0.2px",
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+            <div key={dd.id} style={{ display: "contents" }}>
+              {showSep && (
+                <span
+                  style={{
+                    flex: "0 0 auto",
+                    width: mobile ? "1px" : "70%",
+                    height: mobile ? "30px" : "1px",
+                    margin: mobile ? "0 2px" : "2px 0",
+                    background: "var(--line)",
+                  }}
+                />
+              )}
+              <button
+                style={btnStyle}
+                onClick={dd.open}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  api.togglePinApp(dd.id);
                 }}
+                title={(pinned ? "unpin " : "pin ") + dd.label + " (right-click)"}
               >
-                {dd.label}
-              </span>
-              {!!dd.badge && <span style={badgeStyle}>{dd.badge}</span>}
-            </button>
+                <span style={{ fontSize: "18px", lineHeight: 1 }}>{dd.icon}</span>
+                <span
+                  style={{
+                    fontSize: "8.5px",
+                    fontFamily: "var(--font-pixel)",
+                    letterSpacing: "0.2px",
+                    maxWidth: "100%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {dd.label}
+                </span>
+                {!!dd.badge && <span style={badgeStyle}>{dd.badge}</span>}
+                {pinned && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "2px",
+                      left: "5px",
+                      fontSize: "8px",
+                      color: "var(--accent)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✦
+                  </span>
+                )}
+                {running && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      bottom: "2px",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      width: "4px",
+                      height: "4px",
+                      borderRadius: "50%",
+                      background: "var(--accent)",
+                    }}
+                  />
+                )}
+              </button>
+            </div>
           );
         })}
       </div>
+      )}
 
-      {/* DESKTOP (windows live here) */}
-      <div style={deskStyle} ref={api.deskRef}>
-        {noWindows && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-              fontFamily: "var(--font-pixel)",
-              fontSize: "13px",
-              color: "var(--ink-soft)",
-              padding: "30px",
-            }}
-          >
-            {emptyHint}
-          </div>
+      {/* DESKTOP (icons + windows live here) */}
+      <div style={deskStyle} ref={api.deskRef} onContextMenu={openDesktopMenu}>
+        {!mobile && (
+          <DesktopIcons api={api} defs={appDefs} onIconContext={openIconMenu} />
         )}
         {s.windows.map((w) => (
-          <WindowFrame key={w.id} api={api} w={w} isFocused={w.id === focusedId} mobile={mobile} />
+          <WindowFrame
+            key={w.id}
+            api={api}
+            w={w}
+            isFocused={w.id === focusedId}
+            mobile={mobile}
+            onTitleContext={openWindowMenu}
+          />
         ))}
       </div>
 
       {/* TASKBAR (desktop) */}
       {!mobile && (
         <div style={taskbarStyle}>
-          <span
+          <button
+            onClick={(e) => {
+              const items: MenuItem[] = appDefs.map((a) => ({
+                label: a.label,
+                icon: a.icon,
+                onClick: a.open,
+              }));
+              items.push({ divider: true, label: "" });
+              items.push({ label: "tile windows", icon: "▦", onClick: api.tileWindows });
+              items.push({ label: "cascade windows", icon: "▤", onClick: api.cascadeWindows });
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setMenu({ x: r.left, y: r.top - 8 - (items.length * 34), items });
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -322,45 +446,70 @@ export default function Desktop() {
               borderRadius: "5px",
               boxShadow: "inset 1px 1px 0 rgba(255,255,255,.5)",
               flex: "0 0 auto",
-              cursor: "default",
+              cursor: "pointer",
+              border: "none",
             }}
           >
             ▣ start
-          </span>
+          </button>
           <div style={{ display: "flex", gap: "6px", flex: 1, minWidth: 0, overflowX: "auto", padding: "0 4px" }}>
-            {s.windows.map((w) => {
-              const meta = winMeta(w, s);
-              const focused = w.id === focusedId && !w.min;
-              return (
-                <button
-                  key={w.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    maxWidth: "168px",
-                    padding: "4px 10px",
-                    border: "var(--border)",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    background: focused ? "var(--tab-active)" : "var(--panel-2)",
-                    color: "var(--ink)",
-                    fontSize: "12px",
-                    fontFamily: "var(--font-body)",
-                    opacity: w.min ? 0.6 : 1,
-                  }}
-                  onClick={() => {
-                    if (w.id === focusedId && !w.min) api.minimizeWindow(w.id);
-                    else api.focusWindow(w.id);
-                  }}
-                >
-                  <span style={{ flex: "0 0 auto" }}>{meta.icon}</span>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {meta.title}
-                  </span>
-                </button>
-              );
-            })}
+            {(() => {
+              // taskbar entries: every open window, plus pinned types that have
+              // no open window (so a pin persists after the window is closed).
+              type Entry = { key: string; win?: typeof s.windows[number]; type: string };
+              const entries: Entry[] = s.windows.map((w) => ({ key: w.id, win: w, type: w.type }));
+              s.pinnedWins.forEach((t) => {
+                if (!s.windows.some((w) => w.type === t)) entries.push({ key: "pin-" + t, type: t });
+              });
+              return entries.map((ent) => {
+                const w = ent.win;
+                const pinned = s.pinnedWins.includes(ent.type);
+                const focused = !!w && w.id === focusedId && !w.min;
+                const meta = w
+                  ? winMeta(w, s)
+                  : winMeta({ type: ent.type } as typeof s.windows[number], s);
+                return (
+                  <button
+                    key={ent.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      maxWidth: "168px",
+                      padding: "4px 10px",
+                      border: "var(--border)",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      background: focused ? "var(--tab-active)" : "var(--panel-2)",
+                      color: "var(--ink)",
+                      fontSize: "12px",
+                      fontFamily: "var(--font-body)",
+                      opacity: w ? (w.min ? 0.6 : 1) : 0.5,
+                    }}
+                    onClick={() => {
+                      if (!w) {
+                        api.openWindow(ent.type as Parameters<typeof api.openWindow>[0]);
+                      } else if (w.id === focusedId && !w.min) {
+                        api.minimizeWindow(w.id);
+                      } else {
+                        api.focusWindow(w.id);
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      api.togglePinWin(ent.type);
+                    }}
+                    title={(pinned ? "unpin" : "pin") + " (right-click)"}
+                  >
+                    {pinned && <span style={{ fontSize: "8px", color: "var(--accent)", flex: "0 0 auto" }}>✦</span>}
+                    <span style={{ flex: "0 0 auto" }}>{meta.icon}</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {meta.title}
+                    </span>
+                  </button>
+                );
+              });
+            })()}
           </div>
           <span
             style={{
@@ -377,6 +526,8 @@ export default function Desktop() {
           </span>
         </div>
       )}
+
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
 
       <Onboarding api={api} />
     </div>

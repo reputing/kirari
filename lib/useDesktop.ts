@@ -10,8 +10,10 @@ import type {
   Deco,
 } from "./types";
 import type { ThemeId } from "./themes";
-import { makeInitialState, PEOPLE, REPLIES } from "./seed";
+import { decodeTheme } from "./themes";
+import { makeInitialState, PEOPLE, REPLIES, TINTS, peopleAll } from "./seed";
 import { winSize } from "./styleHelpers";
+import { savePage } from "./store";
 
 // ============================================================================
 // useDesktop — the single source of truth for the desktop environment.
@@ -45,6 +47,10 @@ export interface DesktopApi {
   setConvoDraft: (convoId: string, v: string) => void;
   sendMsg: (convoId: string) => void;
   sendSticker: (convoId: string, em: string) => void;
+  reactToMsg: (convoId: string, msgId: number, emoji: string) => void;
+  sendAttachment: (convoId: string, file: { name: string; type: string; url: string }) => void;
+  addToGroup: (convoId: string, handle: string) => void;
+  removeFromGroup: (convoId: string, memberId: string) => void;
 
   // guestbook
   setGuest: (k: "name" | "text", v: string) => void;
@@ -56,20 +62,45 @@ export interface DesktopApi {
   setGroupName: (v: string) => void;
   toggleMember: (id: string) => void;
   createGroup: (winId: string) => void;
+  setGroupHandle: (v: string) => void;
+  addGroupInvite: () => void;
+  removeGroupInvite: (handle: string) => void;
+
+  // friend requests
+  setReqDraft: (v: string) => void;
+  sendRequest: () => void;
+  acceptRequest: (id: string) => void;
+  declineRequest: (id: string) => void;
+
+  // dock / taskbar pinning
+  togglePinApp: (type: string) => void;
+  togglePinWin: (type: string) => void;
 
   // profile edit
   setP: (k: "name" | "handle" | "pronouns" | "bio", v: string) => void;
   setProfileVal: (k: string, v: unknown) => void;
   setLinkLabel: (id: string, v: string) => void;
+  setLinkField: (id: string, field: "icon" | "url" | "meta" | "emoji", v: string) => void;
   moveLink: (id: string, d: number) => void;
   removeLink: (id: string) => void;
   addLink: () => void;
 
   // misc
-  setTheme: (t: ThemeId) => void;
+  setTheme: (t: string) => void;
   toggle: (k: keyof AppState["toggles"]) => void;
   setMood: (m: string) => void;
   markNotifRead: (id: number) => void;
+
+  // skin editor
+  createCustomTheme: (base: string) => string; // returns new theme id
+  updateCustomTheme: (id: string, patch: { name?: string; sub?: string; vars?: Record<string, string> }) => void;
+  deleteCustomTheme: (id: string) => void;
+  importTheme: (code: string) => boolean;
+
+  // desktop icon layout
+  setIconPos: (id: string, x: number, y: number) => void;
+  tileWindows: () => void;
+  cascadeWindows: () => void;
 
   // onboarding
   openOnb: () => void;
@@ -182,6 +213,27 @@ export function useDesktop(): DesktopApi {
       if (el) el.scrollTop = el.scrollHeight;
     });
   });
+
+  // Publish the page to the shared store (Supabase if configured, else
+  // localStorage) whenever anything visible on the public page changes. This is
+  // what makes /<handle> show the owner's real, saved edits. Debounced so rapid
+  // edits don't thrash storage.
+  useEffect(() => {
+    const handle = state.profile.handle;
+    if (!handle) return;
+    const t = setTimeout(() => {
+      savePage({
+        handle,
+        theme: state.theme,
+        customThemes: state.customThemes,
+        mood: state.mood,
+        profile: state.profile,
+        guestbook: state.guestbook,
+        updatedAt: Date.now(),
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [state.profile, state.theme, state.customThemes, state.mood, state.guestbook]);
 
   // --------------------------------------------------------------- windows
   const focusWindow = useCallback((id: string) => {
@@ -407,6 +459,101 @@ export function useDesktop(): DesktopApi {
     [ensureConvo, openWindow]
   );
 
+  // toggle the current user's reaction (emoji) on a message
+  const reactToMsg = useCallback((convoId: string, msgId: number, emoji: string) => {
+    setState((s) => {
+      const c = s.convos[convoId];
+      if (!c) return s;
+      return {
+        ...s,
+        convos: {
+          ...s.convos,
+          [convoId]: {
+            ...c,
+            messages: c.messages.map((m) => {
+              if (m.id !== msgId) return m;
+              const reactions = { ...(m.reactions || {}) };
+              const who = reactions[emoji] ? [...reactions[emoji]] : [];
+              const i = who.indexOf("me");
+              if (i === -1) who.push("me");
+              else who.splice(i, 1);
+              if (who.length) reactions[emoji] = who;
+              else delete reactions[emoji];
+              return { ...m, reactions };
+            }),
+          },
+        },
+      };
+    });
+  }, []);
+
+  // attach a file (in-memory object URL); shows as an attachment bubble
+  const sendAttachment = useCallback(
+    (convoId: string, file: { name: string; type: string; url: string }) => {
+      setState((s) => {
+        const c = s.convos[convoId];
+        if (!c) return s;
+        return {
+          ...s,
+          convos: {
+            ...s.convos,
+            [convoId]: {
+              ...c,
+              messages: [
+                ...c.messages,
+                { id: Date.now(), from: "me", text: file.name, attachment: file },
+              ],
+            },
+          },
+        };
+      });
+      queueReply(convoId);
+    },
+    [queueReply]
+  );
+
+  // add a person to a group by handle (lightweight friend if unknown)
+  const addToGroup = useCallback((convoId: string, handleRaw: string) => {
+    const handle = handleRaw.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+    if (!handle) return;
+    setState((s) => {
+      const c = s.convos[convoId];
+      if (!c || c.kind !== "group") return s;
+      const members = c.members || [];
+      if (members.includes(handle)) return s;
+      const friends = { ...s.friends };
+      if (!friends[handle] && !PEOPLE[handle]) {
+        friends[handle] = { name: handle, color: TINTS[handle.length % TINTS.length] };
+      }
+      return {
+        ...s,
+        friends,
+        convos: {
+          ...s.convos,
+          [convoId]: {
+            ...c,
+            members: [...members, handle],
+            messages: [...c.messages, { id: Date.now(), from: handle, text: "joined the chat ✦" }],
+          },
+        },
+      };
+    });
+  }, []);
+
+  const removeFromGroup = useCallback((convoId: string, memberId: string) => {
+    setState((s) => {
+      const c = s.convos[convoId];
+      if (!c || c.kind !== "group") return s;
+      return {
+        ...s,
+        convos: {
+          ...s.convos,
+          [convoId]: { ...c, members: (c.members || []).filter((m) => m !== memberId) },
+        },
+      };
+    });
+  }, []);
+
   // ------------------------------------------------------------- guestbook
   const setGuest = useCallback((k: "name" | "text", v: string) => {
     setState((s) => ({ ...s, guestForm: { ...s.guestForm, [k]: v } }));
@@ -444,35 +591,136 @@ export function useDesktop(): DesktopApi {
       newGroup: { ...s.newGroup, picked: { ...s.newGroup.picked, [id]: !s.newGroup.picked[id] } },
     }));
   }, []);
+  const setGroupHandle = useCallback((v: string) => {
+    setState((s) => ({ ...s, newGroup: { ...s.newGroup, handleDraft: v.replace(/^@+/, "").replace(/\s+/g, "") } }));
+  }, []);
+  const addGroupInvite = useCallback(() => {
+    setState((s) => {
+      const h = (s.newGroup.handleDraft || "").replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+      if (!h) return s;
+      // skip dupes and anyone already a known friend (those are picked via the list)
+      if (s.newGroup.invites.includes(h)) return { ...s, newGroup: { ...s.newGroup, handleDraft: "" } };
+      return { ...s, newGroup: { ...s.newGroup, invites: [...s.newGroup.invites, h], handleDraft: "" } };
+    });
+  }, []);
+  const removeGroupInvite = useCallback((handle: string) => {
+    setState((s) => ({
+      ...s,
+      newGroup: { ...s.newGroup, invites: s.newGroup.invites.filter((h) => h !== handle) },
+    }));
+  }, []);
   const createGroup = useCallback(
     (winId: string) => {
       const ng = stateRef.current.newGroup;
-      const ids = Object.keys(ng.picked).filter((k) => ng.picked[k]);
+      const picked = Object.keys(ng.picked).filter((k) => ng.picked[k]);
+      const invited = ng.invites.slice();
+      const ids = [...picked, ...invited];
       if (!ids.length) return;
       const gid = "g" + Date.now();
       const title = (ng.name || "").trim() || "new group ✦";
-      setState((s) => ({
-        ...s,
-        convos: {
-          ...s.convos,
-          [gid]: {
-            id: gid,
-            kind: "group",
-            title,
-            members: ids,
-            draft: "",
-            typing: false,
-            unread: 0,
-            messages: [{ id: 1, from: ids[0], text: "yooo new group lessgooo ✦" }],
+      const opener = picked[0] || invited[0];
+      setState((s) => {
+        // register invited handles as lightweight friends so avatars/names resolve
+        const friends = { ...s.friends };
+        invited.forEach((h, i) => {
+          if (!friends[h] && !PEOPLE[h]) {
+            friends[h] = { name: h, color: TINTS[(h.length + i) % TINTS.length] };
+          }
+        });
+        const pendingNote =
+          invited.length > 0
+            ? [
+                {
+                  id: 2,
+                  from: opener === invited[0] ? picked[0] || invited[0] : invited[0],
+                  text: "invites sent to " + invited.map((h) => "@" + h).join(", ") + " ✉",
+                },
+              ]
+            : [];
+        return {
+          ...s,
+          friends,
+          convos: {
+            ...s.convos,
+            [gid]: {
+              id: gid,
+              kind: "group",
+              title,
+              members: ids,
+              draft: "",
+              typing: false,
+              unread: 0,
+              messages: [{ id: 1, from: opener, text: "yooo new group lessgooo ✦" }, ...pendingNote],
+            },
           },
-        },
-        newGroup: { name: "", picked: {} },
-      }));
+          newGroup: { name: "", picked: {}, invites: [], handleDraft: "" },
+        };
+      });
       closeWindow(winId);
       openWindow("chat", gid);
     },
     [closeWindow, openWindow]
   );
+
+  // --------------------------------------------------------- friend requests
+  const setReqDraft = useCallback((v: string) => {
+    setState((s) => ({ ...s, reqDraft: v.replace(/^@+/, "").replace(/\s+/g, "") }));
+  }, []);
+  const sendRequest = useCallback(() => {
+    setState((s) => {
+      const h = (s.reqDraft || "").replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+      if (!h) return s;
+      if (s.requests.some((r) => r.handle === h && r.dir === "out")) return { ...s, reqDraft: "" };
+      const req = {
+        id: "rq" + Date.now(),
+        handle: h,
+        dir: "out" as const,
+        color: TINTS[h.length % TINTS.length],
+        time: "just now",
+      };
+      return { ...s, requests: [req, ...s.requests], reqDraft: "" };
+    });
+  }, []);
+  const acceptRequest = useCallback((id: string) => {
+    setState((s) => {
+      const r = s.requests.find((x) => x.id === id);
+      if (!r) return s;
+      const friends = { ...s.friends };
+      if (!friends[r.handle] && !PEOPLE[r.handle]) {
+        friends[r.handle] = { name: r.handle, color: r.color };
+      }
+      return {
+        ...s,
+        friends,
+        requests: s.requests.filter((x) => x.id !== id),
+        profile: {
+          ...s.profile,
+          counters: { ...s.profile.counters, friends: s.profile.counters.friends + 1 },
+        },
+      };
+    });
+  }, []);
+  const declineRequest = useCallback((id: string) => {
+    setState((s) => ({ ...s, requests: s.requests.filter((x) => x.id !== id) }));
+  }, []);
+
+  // --------------------------------------------------- dock / taskbar pinning
+  const togglePinApp = useCallback((type: string) => {
+    setState((s) => ({
+      ...s,
+      pinnedApps: s.pinnedApps.includes(type)
+        ? s.pinnedApps.filter((t) => t !== type)
+        : [...s.pinnedApps, type],
+    }));
+  }, []);
+  const togglePinWin = useCallback((type: string) => {
+    setState((s) => ({
+      ...s,
+      pinnedWins: s.pinnedWins.includes(type)
+        ? s.pinnedWins.filter((t) => t !== type)
+        : [...s.pinnedWins, type],
+    }));
+  }, []);
 
   // ----------------------------------------------------------- profile edit
   const setP = useCallback((k: "name" | "handle" | "pronouns" | "bio", v: string) => {
@@ -488,6 +736,15 @@ export function useDesktop(): DesktopApi {
       profile: {
         ...s.profile,
         links: s.profile.links.map((l) => (l.id === id ? { ...l, label: v } : l)),
+      },
+    }));
+  }, []);
+  const setLinkField = useCallback((id: string, field: "icon" | "url" | "meta" | "emoji", v: string) => {
+    setState((s) => ({
+      ...s,
+      profile: {
+        ...s.profile,
+        links: s.profile.links.map((l) => (l.id === id ? { ...l, [field]: v } : l)),
       },
     }));
   }, []);
@@ -523,7 +780,117 @@ export function useDesktop(): DesktopApi {
   }, []);
 
   // ------------------------------------------------------------------ misc
-  const setTheme = useCallback((t: ThemeId) => setState((s) => ({ ...s, theme: t })), []);
+  const setTheme = useCallback((t: string) => setState((s) => ({ ...s, theme: t })), []);
+
+  // skin editor -----------------------------------------------------------
+  const createCustomTheme = useCallback((base: string) => {
+    const baseId = (base.startsWith("custom:") ? "sugar" : base) as ThemeId;
+    const id = "custom:" + Math.random().toString(36).slice(2, 8);
+    setState((s) => {
+      const baseTheme = s.customThemes.find((c) => c.id === base);
+      const seedVars = baseTheme ? { ...baseTheme.vars } : {};
+      const ct = {
+        id,
+        name: "my skin",
+        sub: "custom mix",
+        base: baseTheme ? baseTheme.base : baseId,
+        vars: seedVars,
+      };
+      return { ...s, customThemes: [...s.customThemes, ct], theme: id };
+    });
+    return id;
+  }, []);
+
+  const updateCustomTheme = useCallback(
+    (id: string, patch: { name?: string; sub?: string; vars?: Record<string, string> }) => {
+      setState((s) => ({
+        ...s,
+        customThemes: s.customThemes.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                name: patch.name !== undefined ? patch.name : c.name,
+                sub: patch.sub !== undefined ? patch.sub : c.sub,
+                vars: patch.vars ? { ...c.vars, ...patch.vars } : c.vars,
+              }
+            : c
+        ),
+      }));
+    },
+    []
+  );
+
+  const deleteCustomTheme = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      customThemes: s.customThemes.filter((c) => c.id !== id),
+      theme: s.theme === id ? "sugar" : s.theme,
+    }));
+  }, []);
+
+  const importTheme = useCallback((code: string) => {
+    const ct = decodeTheme(code);
+    if (!ct) return false;
+    setState((s) => ({ ...s, customThemes: [...s.customThemes, ct], theme: ct.id }));
+    return true;
+  }, []);
+
+  const setIconPos = useCallback((id: string, x: number, y: number) => {
+    setState((s) => ({ ...s, iconPos: { ...s.iconPos, [id]: { x, y } } }));
+  }, []);
+
+  // arrange all non-minimized windows in a grid that fills the desktop
+  const tileWindows = useCallback(() => {
+    const desk = deskRef.current;
+    const r = desk ? desk.getBoundingClientRect() : ({ width: 1000, height: 640 } as DOMRect);
+    setState((s) => {
+      const vis = s.windows.filter((w) => !w.min);
+      const n = vis.length;
+      if (!n) return s;
+      const cols = Math.ceil(Math.sqrt(n));
+      const rows = Math.ceil(n / cols);
+      const gap = 8;
+      const cw = Math.floor((r.width - gap * (cols + 1)) / cols);
+      const ch = Math.floor((r.height - gap * (rows + 1)) / rows);
+      let idx = 0;
+      const order = vis.map((w) => w.id);
+      return {
+        ...s,
+        windows: s.windows.map((w) => {
+          if (w.min) return w;
+          const i = order.indexOf(w.id);
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          idx++;
+          return {
+            ...w,
+            max: false,
+            x: gap + col * (cw + gap),
+            y: gap + row * (ch + gap),
+            w: cw,
+            h: ch,
+          };
+        }),
+      };
+    });
+  }, []);
+
+  // fan all non-minimized windows out from the top-left in a cascade
+  const cascadeWindows = useCallback(() => {
+    setState((s) => {
+      const vis = s.windows.filter((w) => !w.min);
+      const order = vis.map((w) => w.id);
+      return {
+        ...s,
+        windows: s.windows.map((w) => {
+          if (w.min) return w;
+          const i = order.indexOf(w.id);
+          const sz = winSize(w.type);
+          return { ...w, max: false, x: 24 + i * 30, y: 18 + i * 28, w: sz.w, h: sz.h };
+        }),
+      };
+    });
+  }, []);
   const toggle = useCallback((k: keyof AppState["toggles"]) => {
     setState((s) => ({ ...s, toggles: { ...s.toggles, [k]: !s.toggles[k] } }));
   }, []);
@@ -582,6 +949,10 @@ export function useDesktop(): DesktopApi {
     setConvoDraft,
     sendMsg,
     sendSticker,
+    reactToMsg,
+    sendAttachment,
+    addToGroup,
+    removeFromGroup,
     setGuest,
     pickGuestFx,
     pickGuestColor,
@@ -589,9 +960,19 @@ export function useDesktop(): DesktopApi {
     setGroupName,
     toggleMember,
     createGroup,
+    setGroupHandle,
+    addGroupInvite,
+    removeGroupInvite,
+    setReqDraft,
+    sendRequest,
+    acceptRequest,
+    declineRequest,
+    togglePinApp,
+    togglePinWin,
     setP,
     setProfileVal,
     setLinkLabel,
+    setLinkField,
     moveLink,
     removeLink,
     addLink,
@@ -599,6 +980,13 @@ export function useDesktop(): DesktopApi {
     toggle,
     setMood,
     markNotifRead,
+    createCustomTheme,
+    updateCustomTheme,
+    deleteCustomTheme,
+    importTheme,
+    setIconPos,
+    tileWindows,
+    cascadeWindows,
     openOnb,
     closeOnb,
     onbPrev,
@@ -610,4 +998,4 @@ export function useDesktop(): DesktopApi {
   };
 }
 
-export { PEOPLE };
+export { PEOPLE, peopleAll };

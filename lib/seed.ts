@@ -33,6 +33,15 @@ export const MOODS = [
 
 export const STICKERS = ["🌟", "♡", "✿", "★", "☁", "🍓", "✦", "🐰", "✧", "💿", "🎀", "⭐"];
 
+// Emoji palette for the in-composer picker and the quick-reaction row.
+export const EMOJIS = [
+  "😊","😂","🥺","😳","😎","😭","🥰","😤","😴","🤔","😅","🙃",
+  "👍","🙏","👀","💪","✌️","🤝","👋","🫶","🤞","💅","🫠","🤗",
+  "❤️","🧡","💛","💚","💙","💜","🖤","🤍","💖","💕","💓","💗",
+  "✨","⭐","🌟","💫","🔥","🌈","☁️","⚡","💧","🌸","🌷","🍀",
+  "🎀","🎧","🎵","🎮","📷","💿","☕","🍓","🍰","🧁","🍙","🐰",
+];
+
 export const PEOPLE: Record<string, Person> = {
   momoka: { name: "momoka", color: "#ff7ec0" },
   ren: { name: "ren", color: "#7cc0ff" },
@@ -41,9 +50,18 @@ export const PEOPLE: Record<string, Person> = {
   hana: { name: "hana", color: "#e7a93a" },
 };
 
+// Avatar tints assigned to friends added at runtime (by handle).
+export const TINTS = ["#ff9ec4", "#8ac6ff", "#67cbb0", "#c3a3ff", "#e7b24a", "#ff8fa0", "#76d0e0"];
+
+// Seed people merged with any friends the user gained at runtime.
+export function peopleAll(friends: Record<string, Person>): Record<string, Person> {
+  return { ...PEOPLE, ...friends };
+}
+
 export function makeInitialState(): AppState {
   return {
     theme: "sugar",
+    customThemes: [],
     now: Date.now(),
     isMobile: false,
     zTop: 5,
@@ -61,13 +79,21 @@ export function makeInitialState(): AppState {
       deco: "♡",
       textFx: "glow",
       links: [
-        { id: "art", emoji: "✿", label: "my art gallery", meta: "142 visits today", kind: "ext" },
-        { id: "music", emoji: "♫", label: "now playing: dream pop mix", meta: "on repeat ♡", kind: "ext" },
-        { id: "shop", emoji: "✩", label: "shop my prints", meta: "restocked!", kind: "ext" },
+        { id: "art", emoji: "✿", label: "my art gallery", meta: "142 visits today", kind: "ext", icon: "artstation", url: "https://example.com/art" },
+        { id: "music", emoji: "♫", label: "now playing: dream pop mix", meta: "on repeat ♡", kind: "ext", icon: "spotify", url: "https://example.com/music" },
+        { id: "shop", emoji: "✩", label: "shop my prints", meta: "restocked!", kind: "ext", icon: "etsy", url: "https://example.com/shop" },
         { id: "guest", emoji: "★", label: "sign my guestbook", meta: "48 signs", kind: "guest" },
-        { id: "about", emoji: "⊹", label: "about / my carrd", meta: "", kind: "ext" },
+        { id: "about", emoji: "⊹", label: "about / my carrd", meta: "", kind: "ext", icon: "venmo13", url: "https://example.com/about" },
       ],
       counters: { views: 12840, knocks: 318, friends: 92 },
+      pfpUrl: undefined,
+      audioUrl: undefined,
+      audioTitle: "dream pop mix ♡",
+      pageBgType: "pattern",
+      pageBgUrl: undefined,
+      pageBgColor: undefined,
+      cardless: false,
+      translucent: false,
     },
     windows: [
       { id: "w-profile", type: "profile", x: 30, y: 24, w: 380, h: 566, z: 4, min: false, max: false },
@@ -124,7 +150,18 @@ export function makeInitialState(): AppState {
       { id: 5, icon: "✿", who: "", text: "12 new visitors from your art link", time: "today" },
     ],
     guestForm: { name: "", text: "", fx: "glow", color: "#ff7ec0" },
-    newGroup: { name: "", picked: {} },
+    newGroup: { name: "", picked: {}, invites: [], handleDraft: "" },
+    requests: [
+      { id: "rq1", handle: "saki", dir: "in", note: "found u thru sparkle club ♡ add me??", color: "#ff9ec4", time: "10 min ago" },
+      { id: "rq2", handle: "yuu", dir: "in", note: "mutuals w momoka! lets be friends ✦", color: "#8ac6ff", time: "1 hr ago" },
+      { id: "rq3", handle: "miki", dir: "in", note: "luv ur art gallery (｡•ᴗ•｡)", color: "#c3a3ff", time: "3 hr ago" },
+      { id: "rq4", handle: "rui", dir: "out", color: "#67cbb0", time: "yesterday" },
+    ],
+    friends: {},
+    pinnedApps: ["profile", "messages"],
+    pinnedWins: [],
+    iconPos: {},
+    reqDraft: "",
     onboarding: false,
     onbStep: 0,
     onbHandle: "",

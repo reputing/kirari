@@ -12,6 +12,7 @@ import NotifsWindow from "./NotifsWindow";
 import EditWindow from "./EditWindow";
 import SettingsWindow from "./SettingsWindow";
 import NewGroupWindow from "./NewGroupWindow";
+import RequestsWindow from "./RequestsWindow";
 
 // Title + icon for a window's titlebar and taskbar entry.
 export function winMeta(
@@ -32,6 +33,7 @@ export function winMeta(
   if (w.type === "edit") return { icon: "✎", title: "edit my page" };
   if (w.type === "settings") return { icon: "⚙", title: "settings" };
   if (w.type === "newgroup") return { icon: "＋", title: "new group chat" };
+  if (w.type === "requests") return { icon: "♡", title: "friend requests" };
   return { icon: "✦", title: "window" };
 }
 
@@ -40,11 +42,13 @@ export default function WindowFrame({
   w,
   isFocused,
   mobile,
+  onTitleContext,
 }: {
   api: DesktopApi;
   w: WindowState;
   isFocused: boolean;
   mobile: boolean;
+  onTitleContext?: (e: React.MouseEvent, winId: string) => void;
 }) {
   const meta = winMeta(w, api.state);
 
@@ -119,7 +123,11 @@ export default function WindowFrame({
   return (
     <div style={frameStyle} data-win={w.id} onMouseDown={() => api.focusWindow(w.id)}>
       {/* titlebar */}
-      <div style={barStyle} onMouseDown={(e) => api.startDrag(w.id, e)}>
+      <div
+        style={barStyle}
+        onMouseDown={(e) => api.startDrag(w.id, e)}
+        onContextMenu={(e) => onTitleContext?.(e, w.id)}
+      >
         <span style={{ fontSize: "12px", lineHeight: 1, flex: "0 0 auto" }}>{meta.icon}</span>
         <span
           style={{
@@ -160,6 +168,7 @@ export default function WindowFrame({
         {w.type === "edit" && <EditWindow api={api} />}
         {w.type === "settings" && <SettingsWindow api={api} />}
         {w.type === "newgroup" && <NewGroupWindow api={api} winId={w.id} />}
+        {w.type === "requests" && <RequestsWindow api={api} />}
       </div>
     </div>
   );

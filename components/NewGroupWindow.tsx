@@ -2,15 +2,18 @@
 
 import type { CSSProperties } from "react";
 import type { DesktopApi } from "@/lib/useDesktop";
-import { PEOPLE } from "@/lib/seed";
+import { peopleAll } from "@/lib/seed";
 import { inputStyle } from "./shared";
 
-// New group composer — name the group, toggle-select friends to invite, then
-// create. On create the group conversation is inserted and its chat window opens.
+// New group composer — name the group, toggle-select known friends, invite
+// anyone else by their @handle (added as pending invites), then create. On
+// create the group conversation is inserted and its chat window opens.
 export default function NewGroupWindow({ api, winId }: { api: DesktopApi; winId: string }) {
   const { state } = api;
   const ng = state.newGroup;
-  const ids = Object.keys(ng.picked).filter((k) => ng.picked[k]);
+  const PEOPLE = peopleAll(state.friends);
+  const pickedIds = Object.keys(ng.picked).filter((k) => ng.picked[k]);
+  const total = pickedIds.length + ng.invites.length;
 
   return (
     <div style={{ height: "100%", overflowY: "auto", padding: "16px" }}>
@@ -108,6 +111,105 @@ export default function NewGroupWindow({ api, winId }: { api: DesktopApi; winId:
           );
         })}
       </div>
+
+      {/* invite by handle */}
+      <div
+        style={{
+          fontFamily: "var(--font-pixel)",
+          fontSize: "9.5px",
+          color: "var(--ink-soft)",
+          marginBottom: "8px",
+        }}
+      >
+        INVITE BY HANDLE
+      </div>
+      <div style={{ display: "flex", gap: "7px", marginBottom: ng.invites.length ? "10px" : "16px" }}>
+        <div style={{ position: "relative", flex: 1 }}>
+          <span
+            style={{
+              position: "absolute",
+              left: "11px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "var(--ink-soft)",
+              fontSize: "13px",
+              pointerEvents: "none",
+            }}
+          >
+            @
+          </span>
+          <input
+            value={ng.handleDraft}
+            onChange={(e) => api.setGroupHandle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") api.addGroupInvite();
+            }}
+            placeholder="add anyone by handle"
+            style={{ ...inputStyle, paddingLeft: "24px" }}
+          />
+        </div>
+        <button
+          style={{
+            padding: "0 15px",
+            border: "none",
+            borderRadius: "var(--radius)",
+            background: "var(--accent-2)",
+            color: "var(--on-accent)",
+            fontFamily: "var(--font-display)",
+            fontSize: "13px",
+            cursor: ng.handleDraft.trim() ? "pointer" : "not-allowed",
+            opacity: ng.handleDraft.trim() ? 1 : 0.45,
+            flex: "0 0 auto",
+          }}
+          onClick={() => api.addGroupInvite()}
+        >
+          add
+        </button>
+      </div>
+      {ng.invites.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+          {ng.invites.map((h) => (
+            <span
+              key={h}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "5px 7px 5px 10px",
+                background: "var(--tab-active)",
+                border: "2px solid var(--accent)",
+                borderRadius: "999px",
+                fontSize: "12px",
+                fontWeight: 700,
+                color: "var(--ink)",
+              }}
+            >
+              @{h}
+              <button
+                onClick={() => api.removeGroupInvite(h)}
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  border: "none",
+                  borderRadius: "50%",
+                  background: "var(--accent)",
+                  color: "var(--on-accent)",
+                  cursor: "pointer",
+                  fontSize: "10px",
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                }}
+                title="remove"
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <button
         style={{
           width: "100%",
@@ -116,10 +218,10 @@ export default function NewGroupWindow({ api, winId }: { api: DesktopApi; winId:
           borderRadius: "var(--radius)",
           fontFamily: "var(--font-display)",
           fontSize: "14px",
-          cursor: ids.length ? "pointer" : "not-allowed",
+          cursor: total ? "pointer" : "not-allowed",
           background: "var(--accent)",
           color: "var(--on-accent)",
-          opacity: ids.length ? 1 : 0.45,
+          opacity: total ? 1 : 0.45,
           boxShadow: "var(--btn-shadow)",
         }}
         onClick={() => api.createGroup(winId)}

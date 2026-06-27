@@ -137,3 +137,46 @@ create policy "members can send" on public.messages for insert
 -- notifications: recipient only
 create policy "own notifications" on public.notifications for all
   using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ============================================================================
+-- Published pages (biolink) — one row per handle, holding the full page as
+-- jsonb. This is what the public route /<handle> reads and the dashboard
+-- writes via lib/store.ts. Simpler than joining the normalized tables above
+-- for the read-heavy public page; the normalized tables remain the source of
+-- truth for chat/notifications/etc.
+-- ============================================================================
+create table if not exists public.pages (
+  handle      text primary key,
+  theme       text not null default 'sugar',
+  mood        text,
+  data        jsonb not null,            -- full PublishedPage shape
+  owner       uuid references auth.users(id) on delete set null,
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.pages enable row level security;
+
+-- anyone can read a published page (it's public)
+create policy "pages are public" on public.pages for select using (true);
+
+-- only the owner can create/update their page (when auth is wired);
+-- until auth is added, loosen this to allow anon upserts for local testing.
+create policy "owner writes page" on public.pages for all
+  using (owner is null or owner = auth.uid())
+  with check (owner is null or owner = auth.uid());
+
+-- ---------------------------------------------------------------------------
+-- Storage bucket for uploaded media (avatar / audio / page background).
+-- Run in the SQL editor; bucket creation is idempotent-ish.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('media', 'media', true)
+on conflict (id) do nothing;
+
+-- public read of media; authenticated (or anon during local dev) can upload
+create policy "media public read" on storage.objects for select
+  using (bucket_id = 'media');
+create policy "media uploads" on storage.objects for insert
+  with check (bucket_id = 'media');
+create policy "media updates" on storage.objects for update
+  using (bucket_id = 'media');

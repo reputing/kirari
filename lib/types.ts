@@ -18,7 +18,8 @@ export type WindowType =
   | "notifs"
   | "edit"
   | "settings"
-  | "newgroup";
+  | "newgroup"
+  | "requests";
 
 export interface LinkItem {
   id: string;
@@ -26,7 +27,11 @@ export interface LinkItem {
   label: string;
   meta: string;
   kind: "ext" | "guest";
+  icon?: string; // social icon id from the icon library
+  url?: string; // destination URL (public page)
 }
+
+export type PageBgType = "pattern" | "color" | "image" | "video";
 
 export interface Profile {
   name: string;
@@ -41,6 +46,15 @@ export interface Profile {
   textFx: TextFx;
   links: LinkItem[];
   counters: { views: number; knocks: number; friends: number };
+  // ---- public page presentation ----
+  pfpUrl?: string; // uploaded avatar image
+  audioUrl?: string; // track that plays on visit (no click-to-enter)
+  audioTitle?: string; // shown in the mini player
+  pageBgType?: PageBgType; // pattern (default) | color | image | video
+  pageBgUrl?: string; // image or video URL when type is image/video
+  pageBgColor?: string; // solid color when type is color
+  cardless?: boolean; // render content directly on the wallpaper (no card)
+  translucent?: boolean; // frosted translucent card instead of solid
 }
 
 export interface ChatMessage {
@@ -48,6 +62,10 @@ export interface ChatMessage {
   from: string; // "me" or a person id
   kind?: "text" | "sticker";
   text: string;
+  // emoji -> who reacted (handles / "me"); rendered as reaction chips under the bubble
+  reactions?: Record<string, string[]>;
+  // lightweight attachment metadata (in-memory object URL until Supabase Storage)
+  attachment?: { name: string; type: string; url: string };
 }
 
 export interface Convo {
@@ -114,8 +132,29 @@ export interface Person {
   color: string;
 }
 
+// A user-authored skin: a full set of CSS-var overrides + label, stored at
+// runtime and selectable like a built-in. Exportable/importable as a code.
+export interface CustomTheme {
+  id: string; // "custom:xxxx"
+  name: string;
+  sub: string;
+  base: ThemeId; // which built-in it started from (fills any gaps)
+  vars: Record<string, string>;
+}
+
+// A friend request, incoming (someone knocked) or outgoing (you sent one).
+export interface FriendRequest {
+  id: string;
+  handle: string; // their @handle
+  dir: "in" | "out"; // incoming = they requested you; outgoing = you requested them
+  note?: string; // short blurb shown on incoming requests
+  color: string; // avatar tint
+  time: string;
+}
+
 export interface AppState {
-  theme: ThemeId;
+  theme: string; // ThemeId or a "custom:xxxx" id
+  customThemes: CustomTheme[]; // user-authored skins
   now: number;
   isMobile: boolean;
   zTop: number;
@@ -126,8 +165,19 @@ export interface AppState {
   convos: Record<string, Convo>;
   guestbook: GuestEntry[];
   notifs: NotifItem[];
+  requests: FriendRequest[];
+  // people the user has befriended at runtime (handle -> Person), merged with seed PEOPLE
+  friends: Record<string, Person>;
+  // dock apps the user pinned as favorites (WindowType ids)
+  pinnedApps: string[];
+  // window types pinned to the taskbar (persist even when closed)
+  pinnedWins: string[];
+  // desktop icon positions, keyed by app id (Windows-style free placement)
+  iconPos: Record<string, { x: number; y: number }>;
   guestForm: { name: string; text: string; fx: TextFx; color: string };
-  newGroup: { name: string; picked: Record<string, boolean> };
+  // newGroup.invites = free-typed handles added as pending invitees
+  newGroup: { name: string; picked: Record<string, boolean>; invites: string[]; handleDraft: string };
+  reqDraft: string; // "send friend request by handle" input
   onboarding: boolean;
   onbStep: number;
   onbHandle: string;

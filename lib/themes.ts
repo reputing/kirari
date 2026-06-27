@@ -145,3 +145,83 @@ export const THEME_METAS: Record<
   kuro: { name: "kuro lolita", sub: "gothic moe", sw: ["#e24a7d", "#cda44e", "#241522"] },
   ostan: { name: "OS-tan", sub: "retro desktop", sw: ["#2a5bd7", "#1f9e54", "#ece9d8"] },
 };
+
+// ============================================================================
+// Custom theme support (skin editor).
+// ============================================================================
+
+import type { CustomTheme } from "./types";
+
+// The subset of CSS vars the skin editor exposes, with friendly labels and the
+// input kind. Everything else is inherited from the chosen base skin.
+export type EditableKind = "color" | "text";
+export const EDITABLE_VARS: { key: string; label: string; kind: EditableKind }[] = [
+  { key: "--accent", label: "accent", kind: "color" },
+  { key: "--accent-2", label: "accent 2", kind: "color" },
+  { key: "--on-accent", label: "text on accent", kind: "color" },
+  { key: "--ink", label: "ink (text)", kind: "color" },
+  { key: "--ink-soft", label: "soft ink", kind: "color" },
+  { key: "--panel", label: "panel", kind: "color" },
+  { key: "--panel-2", label: "panel 2", kind: "color" },
+  { key: "--line", label: "lines", kind: "color" },
+  { key: "--tab-active", label: "active tab", kind: "color" },
+  { key: "--deco", label: "decorations", kind: "color" },
+  { key: "--bg", label: "wallpaper (css)", kind: "text" },
+  { key: "--titlebar", label: "titlebar (css)", kind: "text" },
+  { key: "--titlebar-ink", label: "titlebar text", kind: "color" },
+  { key: "--radius", label: "corner radius", kind: "text" },
+];
+
+// Resolve the active theme's vars: built-in id, or a custom theme (merged over
+// its base so any unedited var still has a value). Always returns a full set.
+export function resolveThemeVars(
+  themeId: string,
+  customThemes: CustomTheme[]
+): Record<string, string> {
+  if (themeId.startsWith("custom:")) {
+    const ct = customThemes.find((c) => c.id === themeId);
+    if (ct) {
+      const base = THEMES[ct.base]?.vars || THEMES.sugar.vars;
+      return { ...base, ...ct.vars };
+    }
+  }
+  return THEMES[(themeId as ThemeId)] ? THEMES[themeId as ThemeId].vars : THEMES.sugar.vars;
+}
+
+// Three representative swatches for any theme id (for picker chips).
+export function themeSwatches(themeId: string, customThemes: CustomTheme[]): [string, string, string] {
+  const v = resolveThemeVars(themeId, customThemes);
+  return [v["--accent"], v["--accent-2"], v["--panel-2"] || v["--ink"]];
+}
+
+// --- import/export codec --------------------------------------------------
+// A theme "code" is a URL-safe base64 of the JSON {n,b,v}. Compact + shareable.
+export function encodeTheme(ct: CustomTheme): string {
+  const payload = { n: ct.name, s: ct.sub, b: ct.base, v: ct.vars };
+  const json = JSON.stringify(payload);
+  const b64 = typeof window !== "undefined" ? window.btoa(unescape(encodeURIComponent(json))) : Buffer.from(json).toString("base64");
+  return "KIRARI~" + b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+export function decodeTheme(code: string): CustomTheme | null {
+  try {
+    const raw = code.trim().replace(/^KIRARI~/, "");
+    const b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
+    const json =
+      typeof window !== "undefined"
+        ? decodeURIComponent(escape(window.atob(b64)))
+        : Buffer.from(b64, "base64").toString("utf8");
+    const p = JSON.parse(json);
+    if (!p || typeof p.v !== "object") return null;
+    const base: ThemeId = THEMES[p.b as ThemeId] ? (p.b as ThemeId) : "sugar";
+    return {
+      id: "custom:" + Math.random().toString(36).slice(2, 8),
+      name: typeof p.n === "string" ? p.n : "imported skin",
+      sub: typeof p.s === "string" ? p.s : "shared theme",
+      base,
+      vars: p.v as Record<string, string>,
+    };
+  } catch {
+    return null;
+  }
+}
