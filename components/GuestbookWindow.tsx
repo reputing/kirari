@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import type { DesktopApi } from "@/lib/useDesktop";
 import type { TextFx, GuestEntry } from "@/lib/types";
 import { PEOPLE } from "@/lib/seed";
-import { nameStyleFor } from "@/lib/styleHelpers";
+import { nameStyleFor, initOf } from "@/lib/styleHelpers";
 
 const FX_LIST: [TextFx, string][] = [
   ["none", "aa"],
@@ -175,7 +175,7 @@ export default function GuestbookWindow({ api }: { api: DesktopApi }) {
                 boxShadow: "var(--btn-shadow)",
               }}
             >
-              <div style={avStyle}>{e.name.charAt(0).toUpperCase()}</div>
+              <div style={avStyle}>{initOf(e.name)}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
                   <span style={nameStyleFor(e.fx, 15)}>{e.name}</span>

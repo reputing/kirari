@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { initOf } from "@/lib/styleHelpers";
 import type { DesktopApi } from "@/lib/useDesktop";
 import { peopleAll } from "@/lib/seed";
 import { inputStyle } from "./shared";
@@ -85,7 +86,7 @@ export default function NewGroupWindow({ api, winId }: { api: DesktopApi; winId:
                   fontFamily: "var(--font-display)",
                 }}
               >
-                {p.name.charAt(0).toUpperCase()}
+                {initOf(p.name)}
               </span>
               <span style={{ flex: 1, textAlign: "left", fontSize: "13.5px", fontWeight: 700 }}>
                 {p.name}

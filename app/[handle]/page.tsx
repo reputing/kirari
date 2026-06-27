@@ -78,8 +78,8 @@ export default function PublicPage() {
           <BioPageView
             data={{ theme: page.theme, customThemes: page.customThemes, mood: page.mood, profile: page.profile, guestbook: page.guestbook, fontDisplay: page.fontDisplay, fontBody: page.fontBody }}
             animate
-            onKnock={() => alert("✦ knocking opens a chat once you're signed in!")}
-            onSign={() => alert("✦ sign in to leave a note!")}
+            onKnock={() => { window.location.href = "/?signup=1"; }}
+            onSign={() => { window.location.href = "/?signup=1"; }}
           />
         </>
       )}

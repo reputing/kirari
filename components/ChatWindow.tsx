@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { initOf } from "@/lib/styleHelpers";
 import type { CSSProperties } from "react";
 import type { DesktopApi } from "@/lib/useDesktop";
 import { peopleAll, STICKERS, EMOJIS } from "@/lib/seed";
@@ -44,7 +45,7 @@ export default function ChatWindow({ api, convoId }: { api: DesktopApi; convoId:
     const p = PEOPLE[c.who as string];
     title = (p ? p.name : c.who) + " ♡";
     subline = c.typing ? "typing…" : "online now ♡";
-    dmInit = (p ? p.name : (c.who as string)).charAt(0).toUpperCase();
+    dmInit = initOf(p ? p.name : (c.who as string));
     dmAvStyle = {
       width: "36px", height: "36px", flex: "0 0 auto", borderRadius: "50%",
       background: p ? p.color : "#b08bbf", color: "#fff", display: "flex",
@@ -66,7 +67,7 @@ export default function ChatWindow({ api, convoId }: { api: DesktopApi; convoId:
       <div style={{ display: "flex", alignItems: "center", gap: "9px", padding: "9px 12px", flex: "0 0 auto", background: "var(--panel-2)", borderBottom: "var(--border)" }}>
         {isGroup ? (
           <div style={{ width: "36px", height: "36px", flex: "0 0 auto", borderRadius: "13px", background: "var(--accent-2)", color: "var(--on-accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "17px", fontFamily: "var(--font-display)" }}>
-            {(title.replace(/[^a-z0-9]/gi, "").charAt(0) || "✦").toUpperCase()}
+            {initOf(title)}
           </div>
         ) : (
           <div style={dmAvStyle}>{dmInit}</div>
@@ -95,7 +96,7 @@ export default function ChatWindow({ api, convoId }: { api: DesktopApi; convoId:
               const p = PEOPLE[id];
               return (
                 <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 6px 4px 9px", background: "var(--panel-2)", border: "var(--border)", borderRadius: "999px", fontSize: "12px", fontWeight: 700 }}>
-                  <span style={{ width: "16px", height: "16px", borderRadius: "50%", background: p ? p.color : "#b08bbf", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "9px", fontFamily: "var(--font-display)" }}>{(p ? p.name : id).charAt(0).toUpperCase()}</span>
+                  <span style={{ width: "16px", height: "16px", borderRadius: "50%", background: p ? p.color : "#b08bbf", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "9px", fontFamily: "var(--font-display)" }}>{initOf(p ? p.name : id)}</span>
                   {p ? p.name : "@" + id}
                   <button onClick={() => api.removeFromGroup(convoId, id)} title="remove" style={{ width: "16px", height: "16px", border: "none", borderRadius: "50%", background: "var(--line)", color: "var(--ink)", cursor: "pointer", fontSize: "10px", lineHeight: 1, padding: 0 }}>✕</button>
                 </span>
@@ -161,7 +162,7 @@ export default function ChatWindow({ api, convoId }: { api: DesktopApi; convoId:
 
           return (
             <div key={m.id} style={{ display: "flex", gap: "7px", alignItems: "flex-end", justifyContent: me ? "flex-end" : "flex-start" }}>
-              {!me && !sticker && <div style={avStyle}>{si.name.charAt(0).toUpperCase()}</div>}
+              {!me && !sticker && <div style={avStyle}>{initOf(si.name)}</div>}
               <div style={{ display: "flex", flexDirection: "column", gap: "2px", alignItems: me ? "flex-end" : "flex-start", maxWidth: "78%", position: "relative" }}>
                 {showName && <span style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: si.color, marginLeft: "3px" }}>{si.name}</span>}
 

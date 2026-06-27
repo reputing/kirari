@@ -119,3 +119,10 @@ input,textarea,button,select{font-family:inherit}
 @keyframes hue{0%{background-position:0% 50%}100%{background-position:200% 50%}}
 @keyframes glowpulse{0%,100%{text-shadow:0 0 7px var(--accent)}50%{text-shadow:0 0 15px var(--accent),0 0 26px var(--accent)}}
 `;
+
+// Safe first-letter for avatars — never throws on undefined/empty.
+export function initOf(name: unknown, fallback = "✦"): string {
+  const s = typeof name === "string" ? name.trim() : "";
+  const m = s.replace(/[^\p{L}\p{N}]/gu, "");
+  return (m.charAt(0) || s.charAt(0) || fallback).toUpperCase();
+}

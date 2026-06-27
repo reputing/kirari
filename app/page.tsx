@@ -21,6 +21,13 @@ export default function Landing() {
   const [authOpen, setAuthOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("signup");
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("signup") === "1") {
+      setMode("signup");
+      setAuthOpen(true);
+    }
+  }, []);
+
   const T = THEMES[theme];
   const vars = T.vars as CSSProperties;
 

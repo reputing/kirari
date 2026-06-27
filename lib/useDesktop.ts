@@ -11,7 +11,7 @@ import type {
 } from "./types";
 import type { ThemeId } from "./themes";
 import { decodeTheme } from "./themes";
-import { makeInitialState, makeBlankState, PEOPLE, REPLIES, TINTS, peopleAll } from "./seed";
+import { makeBlankState, PEOPLE, REPLIES, TINTS, peopleAll } from "./seed";
 import { winSize } from "./styleHelpers";
 import { savePage, loadPage } from "./store";
 
@@ -116,7 +116,9 @@ export interface DesktopApi {
 }
 
 export function useDesktop(): DesktopApi {
-  const [state, setState] = useState<AppState>(makeInitialState);
+  // Start blank (no yuki demo). The hydration effect below fills this from the
+  // signup handle or the last saved page; otherwise it stays a clean slate.
+  const [state, setState] = useState<AppState>(() => makeBlankState(""));
 
   // imperative refs (no React re-render during drag / scroll / cursor)
   const rootRef = useRef<HTMLDivElement>(null);

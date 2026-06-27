@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { initOf } from "@/lib/styleHelpers";
 import type { DesktopApi } from "@/lib/useDesktop";
 import { PEOPLE } from "@/lib/seed";
 
@@ -37,7 +38,7 @@ export default function MessagesWindow({ api }: { api: DesktopApi }) {
       kindLabel: isG ? (c.members!.length + "♥") : "dm",
       preview: lp,
       unread: c.unread || 0,
-      init: title.replace(/[^a-z0-9]/gi, "").charAt(0).toUpperCase() || "✦",
+      init: initOf(title),
       avStyle,
     };
   });

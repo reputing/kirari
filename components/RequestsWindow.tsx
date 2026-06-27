@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { initOf } from "@/lib/styleHelpers";
 import type { DesktopApi } from "@/lib/useDesktop";
 import { inputStyle, SectionLabel } from "./shared";
 
@@ -108,7 +109,7 @@ export default function RequestsWindow({ api }: { api: DesktopApi }) {
               borderRadius: "var(--radius)",
             }}
           >
-            <span style={avatar(r.handle, r.color)}>{r.handle.charAt(0).toUpperCase()}</span>
+            <span style={avatar(r.handle, r.color)}>{initOf(r.handle)}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "13.5px", fontWeight: 700 }}>@{r.handle}</div>
               {r.note && (
@@ -154,7 +155,7 @@ export default function RequestsWindow({ api }: { api: DesktopApi }) {
                   opacity: 0.85,
                 }}
               >
-                <span style={avatar(r.handle, r.color)}>{r.handle.charAt(0).toUpperCase()}</span>
+                <span style={avatar(r.handle, r.color)}>{initOf(r.handle)}</span>
                 <span style={{ flex: 1, fontSize: "13px", fontWeight: 700 }}>@{r.handle}</span>
                 <span
                   style={{

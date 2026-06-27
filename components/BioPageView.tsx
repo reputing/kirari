@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { resolveThemeVars } from "@/lib/themes";
-import { nameStyleFor, bgFor } from "@/lib/styleHelpers";
+import { nameStyleFor, bgFor, initOf } from "@/lib/styleHelpers";
 import { Icon } from "@/components/Icon";
 import type { Profile, GuestEntry, CustomTheme } from "@/lib/types";
 
@@ -42,7 +42,12 @@ export default function BioPageView({
   const themeVars: Record<string, string> = { ...baseVars };
   if (data.fontDisplay) themeVars["--font-display"] = data.fontDisplay;
   if (data.fontBody) themeVars["--font-body"] = data.fontBody;
-  const [views] = useState(() => P.counters.views + Math.floor(Math.random() * 40));
+  const [views, setViews] = useState(P.counters.views);
+  useEffect(() => {
+    // bump the visible count client-side only, after hydration, so SSR and the
+    // first client render match exactly (avoids React hydration error #418/#423)
+    setViews(P.counters.views + Math.floor(Math.random() * 40));
+  }, [P.counters.views]);
 
   // reveal staging: 0 = nothing, climbs as stages mount in
   const [stage, setStage] = useState(animate ? 0 : 99);
@@ -280,7 +285,7 @@ function Links({ profile, onSign }: { profile: Profile; onSign?: () => void }) {
           return l.url && l.kind !== "guest" ? (
             <a key={l.id} href={l.url} target="_blank" rel="noreferrer" style={cardStyle}>{inner}</a>
           ) : (
-            <div key={l.id} style={cardStyle} onClick={() => (l.kind === "guest" ? onSign?.() : undefined)}>{inner}</div>
+            <div key={l.id} style={cardStyle} onClick={() => onSign?.()}>{inner}</div>
           );
         })}
       </div>
@@ -299,7 +304,7 @@ function Guestbook({ entries, profile, onSign }: { entries: GuestEntry[]; profil
         {entries.map((g) => (
           <div key={g.id} style={{ ...surface(profile, { background: profile.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: profile.translucent ? undefined : "0 6px 16px -10px rgba(0,0,0,.4)" }), borderRadius: "16px", padding: "12px 14px", borderLeft: "3px solid " + g.color }}>
             <div style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "5px" }}>
-              <span style={{ width: "26px", height: "26px", borderRadius: "50%", background: g.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontFamily: "var(--font-display)", flex: "0 0 auto" }}>{g.name.charAt(0).toUpperCase()}</span>
+              <span style={{ width: "26px", height: "26px", borderRadius: "50%", background: g.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontFamily: "var(--font-display)", flex: "0 0 auto" }}>{initOf(g.name)}</span>
               <span style={{ ...nameStyleFor(g.fx, 15), color: g.color }}>{g.name}</span>
               <span style={{ flex: 1 }} />
               <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "var(--ink-soft)" }}>{g.time}</span>
