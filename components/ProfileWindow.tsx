@@ -17,6 +17,8 @@ export default function ProfileWindow({ api }: { api: DesktopApi }) {
         mood: state.mood,
         profile: state.profile,
         guestbook: state.guestbook,
+        fontDisplay: state.fontDisplay,
+        fontBody: state.fontBody,
       }}
       embedded
       animate={false}

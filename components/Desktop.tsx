@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { useDesktop } from "@/lib/useDesktop";
 import { resolveThemeVars } from "@/lib/themes";
 import { KEYFRAMES } from "@/lib/styleHelpers";
+import { playClick } from "@/lib/sound";
 import WindowFrame, { winMeta } from "./WindowFrame";
 import Onboarding from "./Onboarding";
 import DesktopIcons, { type IconDef } from "./DesktopIcons";
@@ -20,7 +21,29 @@ export default function Desktop() {
   const api = useDesktop();
   const s = api.state;
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
-  const themeVars = resolveThemeVars(s.theme, s.customThemes);
+  const themeVars = { ...resolveThemeVars(s.theme, s.customThemes) } as Record<string, string>;
+  if (s.fontDisplay) themeVars["--font-display"] = s.fontDisplay;
+  if (s.fontBody) themeVars["--font-body"] = s.fontBody;
+
+  // subtle click sound on buttons (toggleable via settings → sounds)
+  const soundsOn = s.toggles.sounds;
+  useEffect(() => {
+    if (!soundsOn) return;
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t && t.closest("button, a, [role=button]")) playClick("tap");
+    };
+    window.addEventListener("click", onClick);
+    return () => window.removeEventListener("click", onClick);
+  }, [soundsOn]);
+
+  // dashboard wallpaper (separate from the public page bg)
+  const dashBg: string =
+    s.dashBgType === "color"
+      ? s.dashBgColor || "var(--bg)"
+      : s.dashBgType === "image" && s.dashBgUrl
+      ? `center/cover url(${s.dashBgUrl})`
+      : "var(--bg)";
   const mobile = s.isMobile;
   const isAngel = s.theme === "angel";
   const isOstan = s.theme === "ostan";
@@ -30,7 +53,7 @@ export default function Desktop() {
     width: "100%",
     height: "100vh",
     overflow: "hidden",
-    background: "var(--bg)",
+    background: dashBg,
     backgroundAttachment: "fixed",
     color: "var(--ink)",
     fontFamily: "var(--font-body)",
@@ -190,10 +213,10 @@ export default function Desktop() {
         overflowY: "auto",
       };
 
-  // taskbar
+  // taskbar (desktop) — full width since the dock no longer occupies the left
   const taskbarStyle: CSSProperties = {
     position: "absolute",
-    left: DOCK_W + "px",
+    left: 0,
     right: 0,
     bottom: 0,
     height: TASK_H + "px",
@@ -423,6 +446,7 @@ export default function Desktop() {
         <div style={taskbarStyle}>
           <button
             onClick={(e) => {
+              e.stopPropagation();
               const items: MenuItem[] = appDefs.map((a) => ({
                 label: a.label,
                 icon: a.icon,
@@ -432,7 +456,8 @@ export default function Desktop() {
               items.push({ label: "tile windows", icon: "▦", onClick: api.tileWindows });
               items.push({ label: "cascade windows", icon: "▤", onClick: api.cascadeWindows });
               const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              setMenu({ x: r.left, y: r.top - 8 - (items.length * 34), items });
+              const h = items.length * 34 + 12;
+              setMenu({ x: r.left, y: Math.max(8, r.top - 6 - h), items });
             }}
             style={{
               display: "flex",

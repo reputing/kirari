@@ -276,6 +276,16 @@ function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "sig
   function handleAuth() {
     setErr("");
     if (!email.trim() || !pw.trim() || (mode === "signup" && !handle.trim())) { setErr("fill everything in to continue ♡"); return; }
+    // Remember who just claimed/logged in so the dashboard can hydrate the right
+    // page. (Supabase Auth replaces this; the handle handoff stays the same.)
+    try {
+      if (typeof window !== "undefined") {
+        const h = (mode === "signup" ? handle : (handle || email.split("@")[0])).replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+        if (h) {
+          window.localStorage.setItem(mode === "signup" ? "kirari:signupHandle" : "kirari:lastHandle", h);
+        }
+      }
+    } catch { /* ignore */ }
     setBusy(true); setTimeout(() => onAuthed(), 650);
   }
   return (

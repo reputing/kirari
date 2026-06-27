@@ -19,6 +19,8 @@ export interface PublishedPage {
   handle: string;
   theme: string;
   customThemes: CustomTheme[];
+  fontDisplay?: string;
+  fontBody?: string;
   mood: string;
   profile: Profile;
   guestbook: GuestEntry[];

@@ -155,6 +155,11 @@ export interface FriendRequest {
 export interface AppState {
   theme: string; // ThemeId or a "custom:xxxx" id
   customThemes: CustomTheme[]; // user-authored skins
+  fontDisplay?: string; // optional per-account display-font override
+  fontBody?: string; // optional per-account body-font override
+  dashBgType?: "theme" | "color" | "image"; // dashboard wallpaper source
+  dashBgUrl?: string; // dashboard wallpaper image
+  dashBgColor?: string; // dashboard wallpaper solid color
   now: number;
   isMobile: boolean;
   zTop: number;

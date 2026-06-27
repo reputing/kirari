@@ -26,10 +26,15 @@ export default function ContextMenu({
 }) {
   useEffect(() => {
     const close = () => onClose();
-    window.addEventListener("click", close);
-    window.addEventListener("contextmenu", close);
-    window.addEventListener("resize", close);
+    // attach on the next tick so the same click/contextmenu that opened the
+    // menu doesn't immediately close it
+    const id = window.setTimeout(() => {
+      window.addEventListener("click", close);
+      window.addEventListener("contextmenu", close);
+      window.addEventListener("resize", close);
+    }, 0);
     return () => {
+      window.clearTimeout(id);
       window.removeEventListener("click", close);
       window.removeEventListener("contextmenu", close);
       window.removeEventListener("resize", close);

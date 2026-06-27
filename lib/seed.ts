@@ -58,6 +58,19 @@ export function peopleAll(friends: Record<string, Person>): Record<string, Perso
   return { ...PEOPLE, ...friends };
 }
 
+// Fonts available in the per-element font picker. value = CSS font stack.
+// All are already loaded in app/layout.tsx; "default" defers to the theme.
+export const FONTS: { id: string; label: string; value: string }[] = [
+  { id: "default", label: "theme default", value: "" },
+  { id: "mochiy", label: "Mochiy (round)", value: "'Mochiy Pop P One', sans-serif" },
+  { id: "zenmaru", label: "Zen Maru (soft)", value: "'Zen Maru Gothic', sans-serif" },
+  { id: "zenkaku", label: "Zen Kaku (clean)", value: "'Zen Kaku Gothic New', sans-serif" },
+  { id: "varela", label: "Varela (friendly)", value: "'Varela Round', sans-serif" },
+  { id: "dmserif", label: "DM Serif (elegant)", value: "'DM Serif Display', serif" },
+  { id: "dot", label: "DotGothic (pixel)", value: "'DotGothic16', monospace" },
+  { id: "pixelify", label: "Pixelify (retro)", value: "'Pixelify Sans', monospace" },
+];
+
 export function makeInitialState(): AppState {
   return {
     theme: "sugar",
@@ -167,5 +180,46 @@ export function makeInitialState(): AppState {
     onbHandle: "",
     onbMood: "",
     onbLinks: ["", "", ""],
+  };
+}
+
+// A fresh account's starting state: the user's own handle, zero stats, no fake
+// people / convos / notifications / guestbook. This is what a real signup gets.
+export function makeBlankState(handle: string): AppState {
+  const h = (handle || "you").replace(/^@+/, "").replace(/\s+/g, "").toLowerCase() || "you";
+  const s = makeInitialState();
+  return {
+    ...s,
+    mood: "♡ just landed",
+    profile: {
+      ...s.profile,
+      name: h,
+      handle: h,
+      pronouns: "",
+      bio: "this is my little corner of the web ♡ say hi!",
+      since: "online since today ✦",
+      links: [
+        { id: "guest", emoji: "★", label: "sign my guestbook", meta: "", kind: "guest" },
+      ],
+      counters: { views: 0, knocks: 0, friends: 0 },
+      pfpUrl: undefined,
+      audioUrl: undefined,
+      audioTitle: "",
+      pageBgType: "pattern",
+      pageBgUrl: undefined,
+      pageBgColor: undefined,
+      cardless: false,
+      translucent: false,
+    },
+    windows: [
+      { id: "w-profile", type: "profile", x: 40, y: 30, w: 380, h: 566, z: 4, min: false, max: false },
+    ],
+    convos: {},
+    guestbook: [],
+    notifs: [],
+    requests: [],
+    friends: {},
+    pinnedApps: ["profile", "edit"],
+    dashBgType: "theme",
   };
 }

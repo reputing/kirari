@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES, THEME_METAS, EDITABLE_VARS, resolveThemeVars, themeSwatches, encodeTheme } from "@/lib/themes";
 import type { DesktopApi } from "@/lib/useDesktop";
-import { MOODS } from "@/lib/seed";
+import { MOODS, FONTS } from "@/lib/seed";
+import { uploadAsset } from "@/lib/store";
 import { SectionLabel } from "./shared";
 
 const TOGGLE_DEFS: { key: keyof DesktopApi["state"]["toggles"]; label: string; desc: string }[] = [
@@ -105,7 +106,31 @@ export default function SettingsWindow({ api }: { api: DesktopApi }) {
         />
       )}
 
-      {/* vibe toggles */}
+      {/* fonts (per-element) */}
+      <SectionLabel mt="20px 0 8px">✦ FONTS</SectionLabel>
+      <FontRow label="display / headings" value={state.fontDisplay || ""} onPick={(v) => api.setFont("display", v)} />
+      <FontRow label="body / text" value={state.fontBody || ""} onPick={(v) => api.setFont("body", v)} />
+
+      {/* dashboard wallpaper */}
+      <SectionLabel mt="20px 0 8px">✦ DASHBOARD WALLPAPER</SectionLabel>
+      <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
+        {(["theme", "color", "image"] as const).map((t) => {
+          const on = (state.dashBgType || "theme") === t;
+          return (
+            <button key={t} onClick={() => api.setDashBg({ type: t })} style={{ flex: 1, padding: "8px", borderRadius: "12px", border: on ? "2px solid var(--accent)" : "var(--border)", background: on ? "var(--tab-active)" : "var(--panel-2)", color: "var(--ink)", cursor: "pointer", fontSize: "12px", fontWeight: on ? 700 : 400 }}>{t}</button>
+          );
+        })}
+      </div>
+      {(state.dashBgType || "theme") === "color" && (
+        <label style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+          <input type="color" value={/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test((state.dashBgColor || "").trim()) ? state.dashBgColor : "#f3ecff"} onChange={(e) => api.setDashBg({ color: e.target.value })} style={{ width: "30px", height: "30px", border: "var(--border)", borderRadius: "8px", padding: 0, cursor: "pointer", background: "none" }} />
+          <span style={{ fontSize: "12.5px" }}>desktop background color</span>
+        </label>
+      )}
+      {state.dashBgType === "image" && (
+        <DashImageRow current={state.dashBgUrl} handle={state.profile.handle} onUrl={(u) => api.setDashBg({ url: u })} />
+      )}
+
       <SectionLabel mt="20px 0 8px">✦ YOUR VIBE</SectionLabel>
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
         {TOGGLE_DEFS.map((g) => {
@@ -233,4 +258,43 @@ function editIn(): CSSProperties {
 }
 function btn(bg: string, fg: string, outline?: boolean): CSSProperties {
   return { border: outline ? "var(--border)" : "none", background: bg, color: fg, fontFamily: "var(--font-display)", fontSize: "12.5px", padding: "8px 14px", borderRadius: "10px", cursor: "pointer" };
+}
+
+// Font picker row — choose a font for display or body. "" = theme default.
+function FontRow({ label, value, onPick }: { label: string; value: string; onPick: (v: string) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+      <span style={{ flex: "0 0 96px", fontSize: "12px", color: "var(--ink-soft)" }}>{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onPick(e.target.value)}
+        style={{ flex: 1, border: "var(--border)", borderRadius: "10px", background: "var(--panel-2)", padding: "8px 10px", fontSize: "12.5px", color: "var(--ink)", outline: "none", cursor: "pointer", fontFamily: value || "inherit" }}
+      >
+        {FONTS.map((f) => (
+          <option key={f.id} value={f.value}>{f.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// Dashboard wallpaper image uploader.
+function DashImageRow({ current, handle, onUrl }: { current?: string; handle: string; onUrl: (u: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  async function pick(f: File) {
+    setBusy(true);
+    try { onUrl(await uploadAsset(f, "bg", handle || "me")); }
+    finally { setBusy(false); if (ref.current) ref.current.value = ""; }
+  }
+  return (
+    <div style={{ marginBottom: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)" }}>
+        <input ref={ref} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) pick(f); }} />
+        <span style={{ width: "34px", height: "34px", flex: "0 0 auto", borderRadius: "8px", background: current ? `center/cover url(${current})` : "var(--panel-2)", border: "var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "15px", color: "var(--ink-soft)" }}>{current ? "" : "🖼"}</span>
+        <button onClick={() => ref.current?.click()} disabled={busy} style={{ flex: 1, textAlign: "left", border: "none", background: "transparent", cursor: busy ? "wait" : "pointer", fontSize: "12.5px", color: "var(--ink)", fontWeight: 600 }}>{busy ? "uploading…" : current ? "replace ✦" : "upload desktop wallpaper"}</button>
+        {current && !busy && <button onClick={() => onUrl("")} title="remove" style={{ border: "var(--border)", background: "var(--panel-2)", borderRadius: "6px", width: "24px", height: "24px", cursor: "pointer", color: "var(--ink-soft)", fontSize: "11px" }}>✕</button>}
+      </div>
+    </div>
+  );
 }

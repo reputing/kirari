@@ -20,6 +20,8 @@ export interface BioPageData {
   mood: string;
   profile: Profile;
   guestbook: GuestEntry[];
+  fontDisplay?: string;
+  fontBody?: string;
 }
 
 export default function BioPageView({
@@ -36,7 +38,10 @@ export default function BioPageView({
   onSign?: () => void;
 }) {
   const P = data.profile;
-  const themeVars = resolveThemeVars(data.theme, data.customThemes);
+  const baseVars = resolveThemeVars(data.theme, data.customThemes);
+  const themeVars: Record<string, string> = { ...baseVars };
+  if (data.fontDisplay) themeVars["--font-display"] = data.fontDisplay;
+  if (data.fontBody) themeVars["--font-body"] = data.fontBody;
   const [views] = useState(() => P.counters.views + Math.floor(Math.random() * 40));
 
   // reveal staging: 0 = nothing, climbs as stages mount in
@@ -145,11 +150,11 @@ function surface(profile: Profile, extra?: CSSProperties): CSSProperties {
   if (profile.cardless) return { background: "transparent", border: "none", boxShadow: "none", ...extra };
   if (profile.translucent) {
     return {
-      background: "color-mix(in srgb, var(--panel) 55%, transparent)",
-      border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)",
-      backdropFilter: "blur(12px)",
-      WebkitBackdropFilter: "blur(12px)",
-      boxShadow: "0 16px 40px -22px rgba(0,0,0,.5)",
+      background: "color-mix(in srgb, var(--panel) 68%, transparent)",
+      border: "1px solid color-mix(in srgb, var(--ink) 16%, transparent)",
+      backdropFilter: "blur(16px)",
+      WebkitBackdropFilter: "blur(16px)",
+      boxShadow: "0 18px 46px -20px rgba(0,0,0,.6)",
       ...extra,
     };
   }
@@ -159,7 +164,12 @@ function surface(profile: Profile, extra?: CSSProperties): CSSProperties {
 function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profile; mood: string; views: number; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
   const P = profile;
   const onMedia = P.pageBgType === "image" || P.pageBgType === "video";
-  const textGlow = onMedia && P.cardless ? { textShadow: "0 2px 12px rgba(0,0,0,.6)" } : {};
+  // On media backgrounds, the card can sit over dark/busy areas — give text a
+  // shadow and lift soft-ink to a readable tone so nothing disappears.
+  const overMedia = onMedia && (P.cardless || P.translucent);
+  const textGlow: CSSProperties = overMedia ? { textShadow: "0 2px 12px rgba(0,0,0,.7)" } : {};
+  const softInk = overMedia ? "rgba(255,255,255,.82)" : "var(--ink-soft)";
+  const inkOnMedia = overMedia ? "#fff" : "var(--ink)";
 
   return (
     <div
@@ -198,7 +208,7 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
 
       <h1 style={{ margin: 0, ...nameStyleFor(P.textFx, 30), ...textGlow }}>{P.name}</h1>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", flexWrap: "wrap", justifyContent: "center" }}>
-        <span style={{ fontFamily: "var(--font-pixel)", fontSize: "11px", color: "var(--ink-soft)", ...textGlow }}>@{P.handle}</span>
+        <span style={{ fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow }}>@{P.handle}</span>
         {P.pronouns && <span style={{ fontSize: "10px", padding: "2px 9px", borderRadius: "999px", border: "var(--border)", color: "var(--ink-soft)" }}>{P.pronouns}</span>}
       </div>
 
@@ -207,8 +217,8 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
         <span style={{ fontSize: "13px", fontWeight: 700 }}>{mood || "♡ sleepy + online"}</span>
       </div>
 
-      {P.bio && <p style={{ margin: "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: P.cardless && onMedia ? "#fff" : "var(--ink)", maxWidth: "400px", ...textGlow }}>{P.bio}</p>}
-      <div style={{ marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", ...textGlow }}>{P.since}</div>
+      {P.bio && <p style={{ margin: "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "400px", ...textGlow }}>{P.bio}</p>}
+      <div style={{ marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: softInk, ...textGlow }}>{P.since}</div>
 
       <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
         {[["views", views], ["knocks", P.counters.knocks], ["friends", P.counters.friends]].map(([label, n]) => (

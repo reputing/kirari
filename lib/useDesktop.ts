@@ -11,9 +11,9 @@ import type {
 } from "./types";
 import type { ThemeId } from "./themes";
 import { decodeTheme } from "./themes";
-import { makeInitialState, PEOPLE, REPLIES, TINTS, peopleAll } from "./seed";
+import { makeInitialState, makeBlankState, PEOPLE, REPLIES, TINTS, peopleAll } from "./seed";
 import { winSize } from "./styleHelpers";
-import { savePage } from "./store";
+import { savePage, loadPage } from "./store";
 
 // ============================================================================
 // useDesktop — the single source of truth for the desktop environment.
@@ -96,6 +96,8 @@ export interface DesktopApi {
   updateCustomTheme: (id: string, patch: { name?: string; sub?: string; vars?: Record<string, string> }) => void;
   deleteCustomTheme: (id: string) => void;
   importTheme: (code: string) => boolean;
+  setFont: (which: "display" | "body", value: string) => void;
+  setDashBg: (patch: { type?: "theme" | "color" | "image"; url?: string; color?: string }) => void;
 
   // desktop icon layout
   setIconPos: (id: string, x: number, y: number) => void;
@@ -135,6 +137,47 @@ export function useDesktop(): DesktopApi {
   // ----------------------------------------------------------------- effects
   useEffect(() => {
     setState((s) => ({ ...s, isMobile: window.innerWidth < 760 }));
+
+    // Hydrate: prefer a freshly-claimed signup handle (blank slate), else the
+    // last saved page for this browser. Falls back to the demo seed otherwise.
+    (async () => {
+      try {
+        const signup = window.localStorage.getItem("kirari:signupHandle");
+        if (signup) {
+          window.localStorage.removeItem("kirari:signupHandle");
+          const existing = await loadPage(signup);
+          if (existing) {
+            setState((s) => ({
+              ...s,
+              theme: existing.theme,
+              customThemes: existing.customThemes || [],
+              mood: existing.mood,
+              profile: existing.profile,
+              guestbook: existing.guestbook || [],
+            }));
+          } else {
+            setState(() => ({ ...makeBlankState(signup), isMobile: window.innerWidth < 760 }));
+          }
+          return;
+        }
+        const last = window.localStorage.getItem("kirari:lastHandle");
+        if (last) {
+          const existing = await loadPage(last);
+          if (existing) {
+            setState((s) => ({
+              ...s,
+              theme: existing.theme,
+              customThemes: existing.customThemes || [],
+              mood: existing.mood,
+              profile: existing.profile,
+              guestbook: existing.guestbook || [],
+            }));
+          }
+        }
+      } catch {
+        /* ignore hydration errors — fall back to current state */
+      }
+    })();
 
     const vc = setInterval(() => {
       setState((s) =>
@@ -226,6 +269,8 @@ export function useDesktop(): DesktopApi {
         handle,
         theme: state.theme,
         customThemes: state.customThemes,
+        fontDisplay: state.fontDisplay,
+        fontBody: state.fontBody,
         mood: state.mood,
         profile: state.profile,
         guestbook: state.guestbook,
@@ -233,7 +278,7 @@ export function useDesktop(): DesktopApi {
       });
     }, 400);
     return () => clearTimeout(t);
-  }, [state.profile, state.theme, state.customThemes, state.mood, state.guestbook]);
+  }, [state.profile, state.theme, state.customThemes, state.mood, state.guestbook, state.fontDisplay, state.fontBody]);
 
   // --------------------------------------------------------------- windows
   const focusWindow = useCallback((id: string) => {
@@ -835,6 +880,19 @@ export function useDesktop(): DesktopApi {
     return true;
   }, []);
 
+  const setFont = useCallback((which: "display" | "body", value: string) => {
+    setState((s) => (which === "display" ? { ...s, fontDisplay: value || undefined } : { ...s, fontBody: value || undefined }));
+  }, []);
+
+  const setDashBg = useCallback((patch: { type?: "theme" | "color" | "image"; url?: string; color?: string }) => {
+    setState((s) => ({
+      ...s,
+      dashBgType: patch.type !== undefined ? patch.type : s.dashBgType,
+      dashBgUrl: patch.url !== undefined ? patch.url : s.dashBgUrl,
+      dashBgColor: patch.color !== undefined ? patch.color : s.dashBgColor,
+    }));
+  }, []);
+
   const setIconPos = useCallback((id: string, x: number, y: number) => {
     setState((s) => ({ ...s, iconPos: { ...s.iconPos, [id]: { x, y } } }));
   }, []);
@@ -984,6 +1042,8 @@ export function useDesktop(): DesktopApi {
     updateCustomTheme,
     deleteCustomTheme,
     importTheme,
+    setFont,
+    setDashBg,
     setIconPos,
     tileWindows,
     cascadeWindows,
