@@ -132,9 +132,27 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
         <MiniToggle label="translucent card" on={!!P.translucent} disabled={!!P.cardless} onClick={() => api.setProfileVal("translucent", !P.translucent)} />
         <MiniToggle label="no card (bare)" on={!!P.cardless} onClick={() => api.setProfileVal("cardless", !P.cardless)} />
+      </div>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+        <MiniToggle label="3D tilt on hover" on={!!P.tilt} onClick={() => api.setProfileVal("tilt", !P.tilt)} />
+      </div>
+
+      {P.translucent && !P.cardless && (
+        <Slider label="card opacity" value={P.translucentAmt ?? 68} min={25} max={95} onChange={(v) => api.setProfileVal("translucentAmt", v)} />
+      )}
+      <Slider label="drop shadow" value={P.shadowStrength ?? 50} min={0} max={100} onChange={(v) => api.setProfileVal("shadowStrength", v)} />
+
+      <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "4px 0 8px" }}>CARD ANIMATION</div>
+      <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
+        {(["none", "float", "pulse"] as const).map((a) => {
+          const on = (P.cardAnim || "none") === a;
+          return (
+            <button key={a} onClick={() => api.setProfileVal("cardAnim", a)} style={{ flex: 1, padding: "8px", borderRadius: "12px", border: on ? "2px solid var(--accent)" : "var(--border)", background: on ? "var(--tab-active)" : "var(--panel-2)", color: "var(--ink)", cursor: "pointer", fontSize: "12px", fontWeight: on ? 700 : 400 }}>{a}</button>
+          );
+        })}
       </div>
 
       {/* avatar + audio uploads */}
@@ -519,5 +537,18 @@ function MiniToggle({ label, on, onClick, disabled }: { label: string; on: boole
       <span style={{ width: "13px", height: "13px", borderRadius: "4px", border: on ? "none" : "2px solid var(--line)", background: on ? "var(--accent)" : "transparent", color: "var(--on-accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9px" }}>{on ? "✓" : ""}</span>
       {label}
     </button>
+  );
+}
+
+// A labeled range slider for numeric profile options.
+function Slider({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <div style={{ marginBottom: "10px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+        <span style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)" }}>{label.toUpperCase()}</span>
+        <span style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--accent)" }}>{value}</span>
+      </div>
+      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }} />
+    </div>
   );
 }

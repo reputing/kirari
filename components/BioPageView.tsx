@@ -42,12 +42,7 @@ export default function BioPageView({
   const themeVars: Record<string, string> = { ...baseVars };
   if (data.fontDisplay) themeVars["--font-display"] = data.fontDisplay;
   if (data.fontBody) themeVars["--font-body"] = data.fontBody;
-  const [views, setViews] = useState(P.counters.views);
-  useEffect(() => {
-    // bump the visible count client-side only, after hydration, so SSR and the
-    // first client render match exactly (avoids React hydration error #418/#423)
-    setViews(P.counters.views + Math.floor(Math.random() * 40));
-  }, [P.counters.views]);
+  const views = P.counters.views;
 
   // reveal staging: 0 = nothing, climbs as stages mount in
   const [stage, setStage] = useState(animate ? 0 : 99);
@@ -153,17 +148,24 @@ function PageBackground({ profile, embedded, show }: { profile: Profile; embedde
 // ---- surface (solid / translucent / cardless) ----
 function surface(profile: Profile, extra?: CSSProperties): CSSProperties {
   if (profile.cardless) return { background: "transparent", border: "none", boxShadow: "none", ...extra };
+  const shadowK = (profile.shadowStrength ?? 50) / 100;
   if (profile.translucent) {
+    const amt = profile.translucentAmt ?? 68;
     return {
-      background: "color-mix(in srgb, var(--panel) 68%, transparent)",
+      background: `color-mix(in srgb, var(--panel) ${amt}%, transparent)`,
       border: "1px solid color-mix(in srgb, var(--ink) 16%, transparent)",
       backdropFilter: "blur(16px)",
       WebkitBackdropFilter: "blur(16px)",
-      boxShadow: "0 18px 46px -20px rgba(0,0,0,.6)",
+      boxShadow: `0 ${18 * shadowK + 4}px ${46 * shadowK + 8}px -20px rgba(0,0,0,${0.6 * shadowK + 0.15})`,
       ...extra,
     };
   }
-  return { background: "var(--panel)", border: "var(--border)", boxShadow: "var(--shadow)", ...extra };
+  return {
+    background: "var(--panel)",
+    border: "var(--border)",
+    boxShadow: `0 ${14 * shadowK + 2}px ${40 * shadowK + 6}px -16px rgba(0,0,0,${0.5 * shadowK + 0.1})`,
+    ...extra,
+  };
 }
 
 function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profile; mood: string; views: number; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
@@ -176,11 +178,29 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
   const softInk = overMedia ? "rgba(255,255,255,.82)" : "var(--ink-soft)";
   const inkOnMedia = overMedia ? "#fff" : "var(--ink)";
 
+  // optional 3D tilt on hover
+  const cardRef = useRef<HTMLDivElement>(null);
+  function onMove(e: React.MouseEvent) {
+    if (!P.tilt || !cardRef.current) return;
+    const r = cardRef.current.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    cardRef.current.style.transform = `perspective(800px) rotateX(${(-py * 7).toFixed(2)}deg) rotateY(${(px * 7).toFixed(2)}deg)`;
+  }
+  function onLeave() {
+    if (cardRef.current) cardRef.current.style.transform = "perspective(800px) rotateX(0) rotateY(0)";
+  }
+  const idleAnim: CSSProperties = P.cardAnim === "float" ? { animation: "cardfloat 5s ease-in-out infinite" } : P.cardAnim === "pulse" ? { animation: "cardpulse 3.5s ease-in-out infinite" } : {};
+
   return (
     <div
+      ref={cardRef}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
       style={{
         ...surface(P, { borderRadius: "var(--radius)" }),
         ...reveal(3),
+        ...idleAnim,
         width: "100%",
         padding: P.cardless ? "0 0 8px" : "26px 22px",
         display: "flex",
@@ -188,6 +208,8 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
         alignItems: "center",
         textAlign: "center",
         marginBottom: "18px",
+        transition: P.tilt ? "transform .12s ease-out" : undefined,
+        transformStyle: "preserve-3d",
       }}
     >
       {/* avatar — its own reveal (stage 2) */}

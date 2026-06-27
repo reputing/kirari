@@ -116,9 +116,12 @@ export interface DesktopApi {
 }
 
 export function useDesktop(): DesktopApi {
-  // Start blank (no yuki demo). The hydration effect below fills this from the
-  // signup handle or the last saved page; otherwise it stays a clean slate.
+  // Start blank (no yuki demo, no fake handle). The hydration effect fills this
+  // from the signup handle or the last saved page. `hydratedRef` blocks the
+  // save effect from running on the placeholder state and clobbering the real
+  // handle before hydration finishes.
   const [state, setState] = useState<AppState>(() => makeBlankState(""));
+  const hydratedRef = useRef(false);
 
   // imperative refs (no React re-render during drag / scroll / cursor)
   const rootRef = useRef<HTMLDivElement>(null);
@@ -140,19 +143,27 @@ export function useDesktop(): DesktopApi {
   useEffect(() => {
     setState((s) => ({ ...s, isMobile: window.innerWidth < 760 }));
 
-    // Hydrate: prefer a freshly-claimed signup handle (blank slate), else the
-    // last saved page for this browser. Falls back to the demo seed otherwise.
+    // Hydrate the dashboard to the signed-in user. Priority:
+    //   1. a freshly-claimed signup handle  -> blank page for THAT handle
+    //   2. the last saved page for this browser -> reload it
+    //   3. nothing -> stay on the empty placeholder
+    // hydratedRef gates the save effect so the placeholder never overwrites the
+    // real handle's data.
     (async () => {
       try {
         const signup = window.localStorage.getItem("kirari:signupHandle");
         if (signup) {
           window.localStorage.removeItem("kirari:signupHandle");
+          window.localStorage.setItem("kirari:lastHandle", signup);
           const existing = await loadPage(signup);
-          if (existing) {
+          // Only reuse a saved page if it actually belongs to this handle.
+          if (existing && existing.profile?.handle === signup) {
             setState((s) => ({
               ...s,
               theme: existing.theme,
               customThemes: existing.customThemes || [],
+              fontDisplay: existing.fontDisplay,
+              fontBody: existing.fontBody,
               mood: existing.mood,
               profile: existing.profile,
               guestbook: existing.guestbook || [],
@@ -160,43 +171,35 @@ export function useDesktop(): DesktopApi {
           } else {
             setState(() => ({ ...makeBlankState(signup), isMobile: window.innerWidth < 760 }));
           }
+          hydratedRef.current = true;
           return;
         }
         const last = window.localStorage.getItem("kirari:lastHandle");
         if (last) {
           const existing = await loadPage(last);
-          if (existing) {
+          if (existing && existing.profile?.handle === last) {
             setState((s) => ({
               ...s,
               theme: existing.theme,
               customThemes: existing.customThemes || [],
+              fontDisplay: existing.fontDisplay,
+              fontBody: existing.fontBody,
               mood: existing.mood,
               profile: existing.profile,
               guestbook: existing.guestbook || [],
             }));
+          } else {
+            setState(() => ({ ...makeBlankState(last), isMobile: window.innerWidth < 760 }));
           }
         }
       } catch {
         /* ignore hydration errors — fall back to current state */
+      } finally {
+        hydratedRef.current = true;
       }
     })();
 
-    const vc = setInterval(() => {
-      setState((s) =>
-        s.toggles.counter
-          ? {
-              ...s,
-              profile: {
-                ...s.profile,
-                counters: {
-                  ...s.profile.counters,
-                  views: s.profile.counters.views + Math.floor(Math.random() * 3),
-                },
-              },
-            }
-          : s
-      );
-    }, 4800);
+    // (no fake visitor-counter — real view counts come from page loads)
 
     const clk = setInterval(() => setState((s) => ({ ...s, now: Date.now() })), 30000);
 
@@ -240,7 +243,6 @@ export function useDesktop(): DesktopApi {
     window.addEventListener("mousemove", onMove);
 
     return () => {
-      clearInterval(vc);
       clearInterval(clk);
       Object.values(typersRef.current).forEach(clearTimeout);
       window.removeEventListener("mousemove", onMove);
@@ -265,7 +267,7 @@ export function useDesktop(): DesktopApi {
   // edits don't thrash storage.
   useEffect(() => {
     const handle = state.profile.handle;
-    if (!handle) return;
+    if (!handle || !hydratedRef.current) return;
     const t = setTimeout(() => {
       savePage({
         handle,

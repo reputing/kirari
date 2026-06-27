@@ -20,7 +20,7 @@ export function nameStyleFor(fx: TextFx, size?: number): CSSProperties {
       ...base,
       color: "var(--accent)",
       textShadow: "0 0 9px var(--accent)",
-      animation: "glowpulse 2.2s ease-in-out infinite",
+      animation: "textglow 2.2s ease-in-out infinite",
     };
   if (fx === "rainbow")
     return {
@@ -118,6 +118,7 @@ input,textarea,button,select{font-family:inherit}
 @keyframes drift{0%{transform:translateX(-14px)}100%{transform:translateX(14px)}}
 @keyframes hue{0%{background-position:0% 50%}100%{background-position:200% 50%}}
 @keyframes glowpulse{0%,100%{text-shadow:0 0 7px var(--accent)}50%{text-shadow:0 0 15px var(--accent),0 0 26px var(--accent)}}
+@keyframes textglow{0%,100%{text-shadow:0 0 7px var(--accent)}50%{text-shadow:0 0 15px var(--accent),0 0 26px var(--accent)}}
 `;
 
 // Safe first-letter for avatars — never throws on undefined/empty.

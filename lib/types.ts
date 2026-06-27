@@ -55,6 +55,10 @@ export interface Profile {
   pageBgColor?: string; // solid color when type is color
   cardless?: boolean; // render content directly on the wallpaper (no card)
   translucent?: boolean; // frosted translucent card instead of solid
+  translucentAmt?: number; // 0..100 card opacity when translucent (default 68)
+  tilt?: boolean; // subtle 3D tilt-on-hover for the card
+  cardAnim?: "none" | "float" | "pulse"; // idle card animation
+  shadowStrength?: number; // 0..100 card drop-shadow intensity (default 50)
 }
 
 export interface ChatMessage {

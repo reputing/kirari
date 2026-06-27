@@ -230,7 +230,7 @@ export default function Desktop() {
   };
 
   // decorations
-  const nSp = isOstan ? 0 : s.toggles.rain ? 16 : 7;
+  const nSp = isOstan || !s.toggles.rain ? 0 : 16;
   const charSet = isAngel ? ["☁", "✦", "✧"] : s.theme === "kuro" ? ["❀", "✦", "✧"] : ["♡", "✦", "★", "✧"];
   const sparkles = Array.from({ length: nSp }).map((_, i) => ({
     key: i,
