@@ -223,3 +223,24 @@ export function makeBlankState(handle: string): AppState {
     dashBgType: "theme",
   };
 }
+
+// Badge catalog. Non-admin badges are self-pick; admin badges (verified, staff,
+// og, founder) can only be granted from the @x admin panel.
+export const BADGES: import("./types").BadgeDef[] = [
+  { id: "verified", label: "verified", icon: "✓", color: "#3ba6f0", admin: true },
+  { id: "staff", label: "staff", icon: "★", color: "#ff7ec0", admin: true },
+  { id: "founder", label: "founder", icon: "♛", color: "#e7b24a", admin: true },
+  { id: "og", label: "og", icon: "✦", color: "#b48cff", admin: true },
+  { id: "artist", label: "artist", icon: "✎", color: "#67cbb0" },
+  { id: "musician", label: "musician", icon: "♫", color: "#7cc0ff" },
+  { id: "gamer", label: "gamer", icon: "✜", color: "#ff8fa0" },
+  { id: "writer", label: "writer", icon: "✑", color: "#c3a3ff" },
+  { id: "sweet", label: "sweetheart", icon: "♡", color: "#ff9ec4" },
+  { id: "night", label: "night owl", icon: "☾", color: "#8a7cff" },
+  { id: "star", label: "starchild", icon: "✧", color: "#ffd36e" },
+  { id: "bunny", label: "bunny", icon: "❀", color: "#ff7ec0" },
+];
+
+export function badgeById(id: string): import("./types").BadgeDef | undefined {
+  return BADGES.find((b) => b.id === id);
+}

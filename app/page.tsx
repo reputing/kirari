@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { THEMES, THEME_METAS, type ThemeId } from "@/lib/themes";
+import { getSession, signUp, signIn, handleAvailable } from "@/lib/auth";
 
 // ============================================================================
 // kirari.cafe — landing page.
@@ -20,11 +21,15 @@ export default function Landing() {
   const [theme, setTheme] = useState<ThemeId>("sugar");
   const [authOpen, setAuthOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [session, setSession] = useState<{ handle: string; isAdmin: boolean } | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("signup") === "1") {
-      setMode("signup");
-      setAuthOpen(true);
+    // restore session on refresh so the landing shows you logged in
+    getSession().then(setSession);
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("signup") === "1") { setMode("signup"); setAuthOpen(true); }
+      else if (q.get("login") === "1") { setMode("login"); setAuthOpen(true); }
     }
   }, []);
 
@@ -46,8 +51,10 @@ export default function Landing() {
     >
       <Sparkles />
       <MenuBar
+        session={session}
         onGetStarted={() => { setMode("signup"); setAuthOpen(true); }}
         onLogin={() => { setMode("login"); setAuthOpen(true); }}
+        onDash={() => router.push("/dashboard")}
       />
 
       <main style={{ position: "relative", zIndex: 2, maxWidth: "1140px", margin: "0 auto", padding: "0 24px" }}>
@@ -73,7 +80,7 @@ export default function Landing() {
 }
 
 // ---------------------------------------------------------------- menu bar
-function MenuBar({ onGetStarted, onLogin }: { onGetStarted: () => void; onLogin: () => void }) {
+function MenuBar({ session, onGetStarted, onLogin, onDash }: { session: { handle: string; isAdmin: boolean } | null; onGetStarted: () => void; onLogin: () => void; onDash: () => void }) {
   return (
     <div
       style={{
@@ -84,8 +91,17 @@ function MenuBar({ onGetStarted, onLogin }: { onGetStarted: () => void; onLogin:
     >
       <span style={{ fontFamily: "var(--font-display)", fontSize: "15px" }}>✦ kirari.cafe</span>
       <div style={{ flex: 1 }} />
-      <button onClick={onLogin} style={menuBtn(false)}>log in</button>
-      <button onClick={onGetStarted} style={menuBtn(true)}>claim handle</button>
+      {session ? (
+        <>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: "12px", opacity: 0.95 }}>@{session.handle}{session.isAdmin ? " ★" : ""}</span>
+          <button onClick={onDash} style={menuBtn(true)}>open dashboard</button>
+        </>
+      ) : (
+        <>
+          <button onClick={onLogin} style={menuBtn(false)}>log in</button>
+          <button onClick={onGetStarted} style={menuBtn(true)}>claim handle</button>
+        </>
+      )}
     </div>
   );
 }
@@ -277,24 +293,35 @@ function FooterBar() {
 
 // --------------------------------------------------------------- auth dialog
 function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "signup"; setMode: (m: "login" | "signup") => void; onClose: () => void; onAuthed: () => void }) {
-  const [email, setEmail] = useState(""); const [handle, setHandle] = useState(""); const [pw, setPw] = useState("");
+  const [handle, setHandle] = useState(""); const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
-  // SWAP POINT: replace with Supabase Auth (signUp + insert profile / signInWithPassword).
-  function handleAuth() {
+  const [avail, setAvail] = useState<null | boolean>(null);
+
+  // live availability check while typing a new handle
+  useEffect(() => {
+    if (mode !== "signup" || !handle.trim()) { setAvail(null); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      const ok = await handleAvailable(handle);
+      if (alive) setAvail(ok);
+    }, 350);
+    return () => { alive = false; clearTimeout(t); };
+  }, [handle, mode]);
+
+  async function handleAuth() {
     setErr("");
-    if (!email.trim() || !pw.trim() || (mode === "signup" && !handle.trim())) { setErr("fill everything in to continue ♡"); return; }
-    // Remember who just claimed/logged in so the dashboard can hydrate the right
-    // page. (Supabase Auth replaces this; the handle handoff stays the same.)
+    if (!handle.trim() || !pw.trim()) { setErr("fill everything in to continue ♡"); return; }
+    setBusy(true);
+    const res = mode === "signup" ? await signUp(handle, pw) : await signIn(handle, pw);
+    if (!res.ok) { setErr(res.error || "something went wrong"); setBusy(false); return; }
+    // hand the handle to the dashboard hydration
     try {
-      if (typeof window !== "undefined") {
-        const h = (mode === "signup" ? handle : (handle || email.split("@")[0])).replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
-        if (h) {
-          window.localStorage.setItem(mode === "signup" ? "kirari:signupHandle" : "kirari:lastHandle", h);
-        }
-      }
-    } catch { /* ignore */ }
-    setBusy(true); setTimeout(() => onAuthed(), 650);
+      const h = handle.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+      window.localStorage.setItem(mode === "signup" ? "kirari:signupHandle" : "kirari:lastHandle", h);
+    } catch { /* */ }
+    onAuthed();
   }
+
   return (
     <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(40,20,40,.34)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
       <div onMouseDown={(e) => e.stopPropagation()} style={{ width: "380px", maxWidth: "100%", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
@@ -306,27 +333,29 @@ function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "sig
         <div style={{ padding: "18px" }}>
           <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
             {(["signup", "login"] as const).map((m) => (
-              <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "8px", borderRadius: "calc(var(--radius) - 10px)", border: mode === m ? "2px solid var(--accent)" : "var(--border)", background: mode === m ? "var(--tab-active)" : "var(--panel-2)", color: "var(--ink)", fontFamily: "var(--font-display)", fontSize: "13px", cursor: "pointer" }}>
+              <button key={m} onClick={() => { setMode(m); setErr(""); }} style={{ flex: 1, padding: "8px", borderRadius: "calc(var(--radius) - 10px)", border: mode === m ? "2px solid var(--accent)" : "var(--border)", background: mode === m ? "var(--tab-active)" : "var(--panel-2)", color: "var(--ink)", fontFamily: "var(--font-display)", fontSize: "13px", cursor: "pointer" }}>
                 {m === "signup" ? "claim handle" : "log in"}
               </button>
             ))}
           </div>
-          <Field label="EMAIL"><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" style={field()} /></Field>
-          {mode === "signup" && (
-            <Field label="HANDLE">
-              <div style={{ display: "flex", alignItems: "center", border: "var(--border)", borderRadius: "calc(var(--radius) - 10px)", background: "var(--panel-2)", padding: "0 10px" }}>
-                <span style={{ color: "var(--ink-soft)", fontSize: "13px", fontFamily: "var(--font-display)" }}>kirari.cafe/</span>
-                <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/\s+/g, "").toLowerCase())} placeholder="yourname" style={{ ...field(), border: "none", background: "transparent", padding: "9px 4px" }} />
-              </div>
-            </Field>
+          <Field label="HANDLE">
+            <div style={{ display: "flex", alignItems: "center", border: "var(--border)", borderRadius: "calc(var(--radius) - 10px)", background: "var(--panel-2)", padding: "0 10px" }}>
+              <span style={{ color: "var(--ink-soft)", fontSize: "13px", fontFamily: "var(--font-display)" }}>kirari.cafe/</span>
+              <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/\s+/g, "").toLowerCase())} placeholder="yourname" style={{ ...field(), border: "none", background: "transparent", padding: "9px 4px" }} onKeyDown={(e) => e.key === "Enter" && handleAuth()} />
+            </div>
+          </Field>
+          {mode === "signup" && handle.trim() && avail !== null && (
+            <div style={{ fontSize: "11px", margin: "-6px 0 10px", color: avail ? "#3bbf86" : "var(--accent)" }}>
+              {avail ? "✓ available — it's yours!" : "✕ that handle is taken"}
+            </div>
           )}
           <Field label="PASSWORD"><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" style={field()} onKeyDown={(e) => e.key === "Enter" && handleAuth()} /></Field>
           {err && <div style={{ fontSize: "12px", color: "var(--accent)", margin: "0 0 10px" }}>{err}</div>}
-          <button onClick={handleAuth} disabled={busy} style={{ width: "100%", padding: "12px", border: "none", borderRadius: "calc(var(--radius) - 8px)", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14px", cursor: busy ? "wait" : "pointer", boxShadow: "var(--btn-shadow)", opacity: busy ? 0.8 : 1 }}>
+          <button onClick={handleAuth} disabled={busy || (mode === "signup" && avail === false)} style={{ width: "100%", padding: "12px", border: "none", borderRadius: "calc(var(--radius) - 8px)", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14px", cursor: busy ? "wait" : "pointer", boxShadow: "var(--btn-shadow)", opacity: busy || (mode === "signup" && avail === false) ? 0.6 : 1 }}>
             {busy ? "booting…" : mode === "signup" ? "claim it & enter ♡" : "enter ♡"}
           </button>
           <div style={{ textAlign: "center", marginTop: "12px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)" }}>
-            {mode === "signup" ? "no card · free forever" : "welcome back ✦"}
+            {mode === "signup" ? "no email needed · free forever" : "welcome back ✦"}
           </div>
         </div>
       </div>

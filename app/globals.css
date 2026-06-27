@@ -11,6 +11,7 @@
 @keyframes textglow { 0%,100% { text-shadow: 0 0 7px var(--accent) } 50% { text-shadow: 0 0 15px var(--accent), 0 0 26px var(--accent) } }
 @keyframes cardfloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
 @keyframes cardpulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.012) } }
+@keyframes statusblink { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
 
 * { box-sizing: border-box; }
 

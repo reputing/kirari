@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES, THEME_METAS, EDITABLE_VARS, resolveThemeVars, themeSwatches, encodeTheme } from "@/lib/themes";
 import type { DesktopApi } from "@/lib/useDesktop";
-import { MOODS, FONTS } from "@/lib/seed";
-import { uploadAsset } from "@/lib/store";
+import { MOODS, FONTS, BADGES } from "@/lib/seed";
+import { uploadAsset, loadPage, savePage } from "@/lib/store";
+import { getSession, signOut, changePassword } from "@/lib/auth";
 import { SectionLabel } from "./shared";
 
 const TOGGLE_DEFS: { key: keyof DesktopApi["state"]["toggles"]; label: string; desc: string }[] = [
@@ -159,11 +160,147 @@ export default function SettingsWindow({ api }: { api: DesktopApi }) {
         ))}
       </div>
 
-      <button onClick={() => api.openOnb()} style={{ marginTop: "20px", padding: "10px 16px", background: "var(--panel-2)", border: "var(--border)", borderRadius: "var(--radius)", color: "var(--ink-soft)", fontSize: "12.5px", cursor: "pointer" }}>
-        sign out · switch page ↩
+      {/* badges */}
+      <SectionLabel mt="20px 0 8px">✦ BADGES</SectionLabel>
+      <BadgePicker api={api} />
+
+      {/* account */}
+      <SectionLabel mt="20px 0 8px">✦ ACCOUNT</SectionLabel>
+      <AccountPanel api={api} />
+    </div>
+  );
+}
+
+// ---- account: display name, handle, password, sign out, admin ----
+function AccountPanel({ api }: { api: DesktopApi }) {
+  const { state } = api;
+  const [session, setSession] = useState<{ handle: string; isAdmin: boolean } | null>(null);
+  const [curPw, setCurPw] = useState(""); const [newPw, setNewPw] = useState("");
+  const [pwMsg, setPwMsg] = useState("");
+  const [handle, setHandleInput] = useState(state.profile.handle);
+
+  useEffect(() => { getSession().then(setSession); }, []);
+  useEffect(() => { setHandleInput(state.profile.handle); }, [state.profile.handle]);
+
+  async function doPw() {
+    setPwMsg("");
+    const r = await changePassword(curPw, newPw);
+    setPwMsg(r.ok ? "password changed ✓" : (r.error || "failed"));
+    if (r.ok) { setCurPw(""); setNewPw(""); }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <FieldRow label="display name">
+        <input value={state.profile.name} onChange={(e) => api.setProfileVal("name", e.target.value)} style={acctIn()} placeholder="your name" />
+      </FieldRow>
+      <FieldRow label="handle (your url)">
+        <div style={{ display: "flex", gap: "6px" }}>
+          <input value={handle} onChange={(e) => setHandleInput(e.target.value.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase())} style={acctIn()} placeholder="handle" />
+          <button onClick={() => { const h = handle.trim(); if (h) { api.setProfileVal("handle", h); try { localStorage.setItem("kirari:lastHandle", h); } catch {} } }} style={acctBtn()}>save</button>
+        </div>
+      </FieldRow>
+
+      <div style={{ borderTop: "1px dashed var(--line)", paddingTop: "10px", marginTop: "2px" }}>
+        <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", marginBottom: "7px" }}>CHANGE PASSWORD</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <input type="password" value={curPw} onChange={(e) => setCurPw(e.target.value)} placeholder="current password" style={acctIn()} />
+          <div style={{ display: "flex", gap: "6px" }}>
+            <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="new password" style={acctIn()} />
+            <button onClick={doPw} style={acctBtn()}>update</button>
+          </div>
+          {pwMsg && <span style={{ fontSize: "11px", color: pwMsg.includes("✓") ? "#3bbf86" : "var(--accent)" }}>{pwMsg}</span>}
+        </div>
+      </div>
+
+      {session?.isAdmin && <AdminPanel />}
+
+      <button
+        onClick={async () => { await signOut(); window.location.href = "/"; }}
+        style={{ marginTop: "8px", padding: "10px 16px", background: "var(--panel-2)", border: "var(--border)", borderRadius: "var(--radius)", color: "var(--ink-soft)", fontSize: "12.5px", cursor: "pointer" }}
+      >
+        sign out ↩
       </button>
     </div>
   );
+}
+
+// ---- badge picker (self-pick non-admin badges) ----
+function BadgePicker({ api }: { api: DesktopApi }) {
+  const owned = api.state.profile.badges || [];
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+      {BADGES.map((b) => {
+        const on = owned.includes(b.id);
+        const locked = b.admin && !on; // admin badges can't be self-added
+        return (
+          <button
+            key={b.id}
+            disabled={locked}
+            onClick={() => {
+              const next = on ? owned.filter((x) => x !== b.id) : [...owned, b.id];
+              api.setProfileVal("badges", next);
+            }}
+            title={locked ? "granted by staff only" : b.label}
+            style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "5px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 700, cursor: locked ? "not-allowed" : "pointer", color: on ? "#fff" : "var(--ink)", background: on ? b.color : "var(--panel-2)", border: on ? "none" : "var(--border)", opacity: locked ? 0.4 : 1 }}
+          >
+            <span>{b.icon}</span>{b.label}{b.admin && " ★"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---- admin panel (@x only): grant/revoke any badge to any handle ----
+function AdminPanel() {
+  const [target, setTarget] = useState("");
+  const [msg, setMsg] = useState("");
+  const [working, setWorking] = useState(false);
+
+  async function apply(badgeId: string, grant: boolean) {
+    const h = target.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+    if (!h) { setMsg("enter a handle"); return; }
+    setWorking(true); setMsg("");
+    const page = await loadPage(h);
+    if (!page) { setMsg("no page found for @" + h); setWorking(false); return; }
+    const badges = new Set(page.profile.badges || []);
+    if (grant) badges.add(badgeId); else badges.delete(badgeId);
+    await savePage({ ...page, profile: { ...page.profile, badges: Array.from(badges) }, updatedAt: Date.now() });
+    setMsg(`${grant ? "granted" : "revoked"} ${badgeId} ${grant ? "to" : "from"} @${h} ✓`);
+    setWorking(false);
+  }
+
+  return (
+    <div style={{ marginTop: "10px", padding: "12px", borderRadius: "var(--radius)", background: "var(--panel-2)", border: "2px solid var(--accent)" }}>
+      <div style={{ fontFamily: "var(--font-display)", fontSize: "13px", marginBottom: "8px" }}>★ admin panel</div>
+      <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="target handle (e.g. nex)" style={{ ...acctIn(), marginBottom: "8px" }} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+        {BADGES.filter((b) => b.admin).map((b) => (
+          <div key={b.id} style={{ display: "flex", gap: "3px" }}>
+            <button disabled={working} onClick={() => apply(b.id, true)} style={{ padding: "5px 9px", borderRadius: "8px", border: "none", background: b.color, color: "#fff", fontSize: "10.5px", fontWeight: 700, cursor: "pointer" }}>+{b.label}</button>
+            <button disabled={working} onClick={() => apply(b.id, false)} title="revoke" style={{ padding: "5px 7px", borderRadius: "8px", border: "var(--border)", background: "var(--panel)", color: "var(--ink-soft)", fontSize: "10.5px", cursor: "pointer" }}>−</button>
+          </div>
+        ))}
+      </div>
+      {msg && <div style={{ fontSize: "11px", marginTop: "8px", color: msg.includes("✓") ? "#3bbf86" : "var(--accent)" }}>{msg}</div>}
+    </div>
+  );
+}
+
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "block" }}>
+      <span style={{ display: "block", fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", marginBottom: "4px" }}>{label.toUpperCase()}</span>
+      {children}
+    </label>
+  );
+}
+function acctIn(): CSSProperties {
+  return { flex: 1, width: "100%", border: "var(--border)", borderRadius: "10px", background: "var(--panel)", padding: "8px 11px", fontSize: "12.5px", color: "var(--ink)", outline: "none" };
+}
+function acctBtn(): CSSProperties {
+  return { border: "none", background: "var(--accent)", color: "var(--on-accent)", borderRadius: "10px", padding: "0 14px", cursor: "pointer", fontFamily: "var(--font-display)", fontSize: "12.5px", flex: "0 0 auto" };
 }
 
 function SkinCard({ active, name, sub, sw, custom, onClick }: { active: boolean; name: string; sub: string; sw: [string, string, string]; custom?: boolean; onClick: () => void }) {

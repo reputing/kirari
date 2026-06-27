@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useParams } from "next/navigation";
 import { loadPage, type PublishedPage } from "@/lib/store";
+import { getSession } from "@/lib/auth";
 import { resolveThemeVars } from "@/lib/themes";
-import { makeInitialState } from "@/lib/seed";
 import BioPageView from "@/components/BioPageView";
 import type { Profile } from "@/lib/types";
 
@@ -24,25 +24,24 @@ export default function PublicPage() {
   const [loading, setLoading] = useState(true);
   const [entered, setEntered] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [authPrompt, setAuthPrompt] = useState<null | "knock" | "sign">(null);
+  const [session, setSession] = useState<{ handle: string; isAdmin: boolean } | null>(null);
+  useEffect(() => { getSession().then(setSession); }, []);
+
+  function gated(kind: "knock" | "sign") {
+    if (session) {
+      alert(kind === "knock" ? "✦ knock sent! (chat coming soon)" : "✦ comment posted! (saving soon)");
+    } else {
+      setAuthPrompt(kind);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
     (async () => {
       const p = await loadPage(handle);
       if (!alive) return;
-      if (p) setPage(p);
-      else {
-        const seed = makeInitialState();
-        setPage({
-          handle,
-          theme: seed.theme,
-          customThemes: seed.customThemes,
-          mood: seed.mood,
-          profile: { ...seed.profile, handle: handle || seed.profile.handle },
-          guestbook: seed.guestbook,
-          updatedAt: Date.now(),
-        });
-      }
+      setPage(p); // null = unclaimed handle → 404 view
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -58,7 +57,8 @@ export default function PublicPage() {
     setEntered(true);
   }
 
-  if (loading || !page) return <BootSplash handle={handle} ready={false} onEnter={() => {}} />;
+  if (loading) return <BootSplash handle={handle} ready={false} onEnter={() => {}} />;
+  if (!page) return <NotFound handle={handle} />;
 
   const baseVars = resolveThemeVars(page.theme, page.customThemes) as Record<string, string>;
   const themeVars: CSSProperties = { ...baseVars };
@@ -78,9 +78,10 @@ export default function PublicPage() {
           <BioPageView
             data={{ theme: page.theme, customThemes: page.customThemes, mood: page.mood, profile: page.profile, guestbook: page.guestbook, fontDisplay: page.fontDisplay, fontBody: page.fontBody }}
             animate
-            onKnock={() => { window.location.href = "/?signup=1"; }}
-            onSign={() => { window.location.href = "/?signup=1"; }}
+            onKnock={() => gated("knock")}
+            onSign={() => gated("sign")}
           />
+          {authPrompt && <AuthPrompt kind={authPrompt} handle={handle} onClose={() => setAuthPrompt(null)} />}
         </>
       )}
     </div>
@@ -88,6 +89,53 @@ export default function PublicPage() {
 }
 
 // ---- animated enter splash ----
+// A gentle in-page sign-in prompt (no ugly redirect) for knock/comment.
+function AuthPrompt({ kind, handle, onClose }: { kind: "knock" | "sign"; handle: string; onClose: () => void }) {
+  return (
+    <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(30,15,30,.42)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div onMouseDown={(e) => e.stopPropagation()} style={{ width: "330px", maxWidth: "100%", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", padding: "26px 22px", textAlign: "center" }}>
+        <div style={{ fontSize: "34px", marginBottom: "6px" }}>{kind === "knock" ? "✉" : "✎"}</div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: "18px", color: "var(--ink)", marginBottom: "8px" }}>
+          {kind === "knock" ? `knock on @${handle}'s door?` : `sign @${handle}'s guestbook?`}
+        </div>
+        <p style={{ fontSize: "13px", color: "var(--ink-soft)", lineHeight: 1.5, margin: "0 0 20px" }}>
+          you&apos;ll need a kirari account first — it&apos;s free and takes a sec ♡
+        </p>
+        <a href="/?signup=1" style={{ display: "block", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14px", padding: "12px", borderRadius: "var(--radius)", textDecoration: "none", marginBottom: "8px", boxShadow: "var(--btn-shadow)" }}>
+            claim my handle ♡
+        </a>
+        <a href="/?login=1" style={{ display: "block", fontFamily: "var(--font-pixel)", fontSize: "11px", color: "var(--ink-soft)", padding: "6px" }}>
+          already have one? log in
+        </a>
+        <button onClick={onClose} style={{ marginTop: "4px", border: "none", background: "transparent", color: "var(--ink-soft)", fontFamily: "var(--font-pixel)", fontSize: "10px", cursor: "pointer" }}>maybe later</button>
+      </div>
+    </div>
+  );
+}
+
+// Unclaimed handle → clean 404 that doubles as a claim prompt.
+function NotFound({ handle }: { handle: string }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(165deg,#ffe6f3,#f3ecff,#e7f7ff)", fontFamily: "'Zen Maru Gothic', sans-serif", padding: "20px" }}>
+      <div style={{ textAlign: "center", color: "#8a5d7e", maxWidth: "360px" }}>
+        <div style={{ fontFamily: "'Mochiy Pop P One', sans-serif", fontSize: "64px", color: "#ff7ec0", lineHeight: 1 }}>404</div>
+        <div style={{ fontFamily: "'DotGothic16', monospace", fontSize: "12px", color: "#bd92b3", margin: "10px 0 18px" }}>
+          nobody lives at kirari.cafe/{handle} yet
+        </div>
+        <div style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "22px" }}>
+          this handle is <b style={{ color: "#3bbf86" }}>available</b> — want it?
+        </div>
+        <a href={"/?signup=1"} style={{ display: "inline-block", background: "#ff7ec0", color: "#fff", fontFamily: "'Mochiy Pop P One', sans-serif", fontSize: "14px", padding: "12px 26px", borderRadius: "999px", textDecoration: "none", boxShadow: "0 8px 22px -8px rgba(0,0,0,.4)" }}>
+          ✦ claim @{handle}
+        </a>
+        <div style={{ marginTop: "16px" }}>
+          <a href="/" style={{ fontFamily: "'DotGothic16', monospace", fontSize: "11px", color: "#bd92b3" }}>← back to kirari.cafe</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BootSplash({ handle, ready, onEnter, profile }: { handle: string; ready: boolean; onEnter: () => void; profile?: Profile }) {
   const hasBgMedia = profile && (profile.pageBgType === "image" || profile.pageBgType === "video") && profile.pageBgUrl;
   return (

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { resolveThemeVars } from "@/lib/themes";
 import { nameStyleFor, bgFor, initOf } from "@/lib/styleHelpers";
+import { badgeById } from "@/lib/seed";
 import { Icon } from "@/components/Icon";
 import type { Profile, GuestEntry, CustomTheme } from "@/lib/types";
 
@@ -239,19 +240,35 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
         {P.pronouns && <span style={{ fontSize: "10px", padding: "2px 9px", borderRadius: "999px", border: "var(--border)", color: "var(--ink-soft)" }}>{P.pronouns}</span>}
       </div>
 
+      {/* badges */}
+      {P.badges && P.badges.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", justifyContent: "center", marginTop: "9px" }}>
+          {P.badges.map((bid) => {
+            const b = badgeById(bid);
+            if (!b) return null;
+            return (
+              <span key={bid} title={b.label} style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 9px", borderRadius: "999px", fontSize: "10.5px", fontWeight: 700, color: "#fff", background: b.color, boxShadow: "0 2px 6px -2px " + b.color }}>
+                <span style={{ fontSize: "10px" }}>{b.icon}</span>{b.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", marginTop: "12px", padding: "7px 14px", borderRadius: "999px", ...surface(P, { background: P.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: "none" }) }}>
-        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#5ed29a", boxShadow: "0 0 6px #5ed29a" }} />
+        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#5ed29a", boxShadow: "0 0 6px #5ed29a", animation: "statusblink 2.4s ease-in-out infinite" }} />
         <span style={{ fontSize: "13px", fontWeight: 700 }}>{mood || "♡ sleepy + online"}</span>
       </div>
 
       {P.bio && <p style={{ margin: "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "400px", ...textGlow }}>{P.bio}</p>}
       <div style={{ marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: softInk, ...textGlow }}>{P.since}</div>
 
-      <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-        {[["views", views], ["knocks", P.counters.knocks], ["friends", P.counters.friends]].map(([label, n]) => (
-          <div key={label as string} style={{ ...surface(P, { background: P.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: "none" }), borderRadius: "14px", padding: "8px 14px", minWidth: "64px" }}>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: "16px", color: "var(--accent)" }}>{Number(n).toLocaleString()}</div>
-            <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", letterSpacing: "0.5px" }}>{String(label).toUpperCase()}</div>
+      {/* counters — one connected strip with dividers (less "3 flat boxes") */}
+      <div style={{ display: "flex", marginTop: "16px", borderRadius: "16px", overflow: "hidden", ...surface(P, { background: P.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: "none" }) }}>
+        {([["views", views], ["knocks", P.counters.knocks], ["friends", P.counters.friends]] as [string, number][]).map(([label, n], i) => (
+          <div key={label} style={{ padding: "9px 18px", textAlign: "center", borderLeft: i ? "1px solid var(--line)" : "none", flex: 1 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: "17px", color: "var(--accent)" }}>{Number(n).toLocaleString()}</div>
+            <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", letterSpacing: "0.5px" }}>{label.toUpperCase()}</div>
           </div>
         ))}
       </div>

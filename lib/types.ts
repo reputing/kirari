@@ -59,6 +59,16 @@ export interface Profile {
   tilt?: boolean; // subtle 3D tilt-on-hover for the card
   cardAnim?: "none" | "float" | "pulse"; // idle card animation
   shadowStrength?: number; // 0..100 card drop-shadow intensity (default 50)
+  badges?: string[]; // badge ids shown on the card (self-pick + admin-granted)
+}
+
+// Badge catalog entry. `admin: true` badges can only be granted via the admin panel.
+export interface BadgeDef {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+  admin?: boolean;
 }
 
 export interface ChatMessage {
