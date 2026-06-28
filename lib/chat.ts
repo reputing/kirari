@@ -232,6 +232,50 @@ export async function markKnocksRead(me: string, threadId: string): Promise<void
   } catch { /* */ }
 }
 
+// ---- local rename migration ----
+// Re-key ALL local chat data from one handle to another so changing your
+// @handle never loses your DMs / groups / knocks. (Supabase rows are migrated
+// in store.renameHandle; this covers the localStorage fallback.)
+export function migrateChatsLocal(fromRaw: string, toRaw: string): void {
+  const from = norm(fromRaw), to = norm(toRaw);
+  if (!from || !to || from === to) return;
+  try {
+    const threads = lsGet<Record<string, { id: string; a: string; b: string; updatedAt: number }>>(LS_THREADS, {});
+    const msgs = lsGet<Record<string, DMMessage[]>>(LS_MSGS, {});
+    const idMap: Record<string, string> = {};
+    const nextThreads: Record<string, { id: string; a: string; b: string; updatedAt: number }> = {};
+    for (const t of Object.values(threads)) {
+      if (t.a !== from && t.b !== from) { nextThreads[t.id] = t; continue; }
+      const a = t.a === from ? to : t.a;
+      const b = t.b === from ? to : t.b;
+      const key = pairKey(a, b);
+      const [na, nb] = key.split("__");
+      idMap[t.id] = key;
+      nextThreads[key] = { id: key, a: na, b: nb, updatedAt: t.updatedAt };
+    }
+    const nextMsgs: Record<string, DMMessage[]> = {};
+    for (const [tid, list] of Object.entries(msgs)) {
+      const newId = idMap[tid] || tid;
+      const fixed = list.map((m) => ({ ...m, thread: newId, sender: m.sender === from ? to : m.sender }));
+      nextMsgs[newId] = [...(nextMsgs[newId] || []), ...fixed];
+    }
+    lsSet(LS_THREADS, nextThreads);
+    lsSet(LS_MSGS, nextMsgs);
+
+    const notifs = lsGet<Record<string, { id: string; from: string; thread: string; read?: boolean }[]>>(LS_NOTIFS, {});
+    if (notifs[from]) { notifs[to] = [...(notifs[to] || []), ...notifs[from]]; delete notifs[from]; }
+    for (const arr of Object.values(notifs)) arr.forEach((n) => { if (n.from === from) n.from = to; if (idMap[n.thread]) n.thread = idMap[n.thread]; });
+    lsSet(LS_NOTIFS, notifs);
+
+    const groups = lsGet<Record<string, { id: string; name: string; members: string[]; updatedAt: number }>>("kirari:groups", {});
+    for (const g of Object.values(groups)) g.members = g.members.map((m) => (m === from ? to : m));
+    lsSet("kirari:groups", groups);
+    const gmsgs = lsGet<Record<string, DMMessage[]>>("kirari:groupmsgs", {});
+    for (const arr of Object.values(gmsgs)) arr.forEach((m) => { if (m.sender === from) m.sender = to; });
+    lsSet("kirari:groupmsgs", gmsgs);
+  } catch { /* */ }
+}
+
 // ---- knock notifications for me ----
 export async function loadKnocks(me: string): Promise<{ id: string; from: string; thread: string }[]> {
   const h = norm(me);
