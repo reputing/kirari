@@ -44,7 +44,7 @@ export default function ChatWindow({ api, convoId }: { api: DesktopApi; convoId:
   } else {
     const p = PEOPLE[c.who as string];
     title = (p ? p.name : c.who) + " ♡";
-    subline = c.typing ? "typing…" : "online now ♡";
+    subline = c.typing ? "typing…" : "@" + (c.who as string);
     dmInit = initOf(p ? p.name : (c.who as string));
     dmAvStyle = {
       width: "36px", height: "36px", flex: "0 0 auto", borderRadius: "50%",
@@ -82,7 +82,7 @@ export default function ChatWindow({ api, convoId }: { api: DesktopApi; convoId:
             title="manage members"
             style={{ flex: "0 0 auto", border: "var(--border)", background: manage ? "var(--tab-active)" : "var(--panel)", color: "var(--ink)", borderRadius: "10px", padding: "6px 10px", cursor: "pointer", fontSize: "12px", fontFamily: "var(--font-display)" }}
           >
-            ⚙ members
+            ⚙ manage
           </button>
         )}
       </div>
@@ -90,7 +90,14 @@ export default function ChatWindow({ api, convoId }: { api: DesktopApi; convoId:
       {/* member manager (groups) */}
       {isGroup && manage && (
         <div style={{ flex: "0 0 auto", background: "var(--panel)", borderBottom: "var(--border)", padding: "11px 12px" }}>
-          <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", marginBottom: "8px" }}>MEMBERS</div>
+          <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", marginBottom: "6px" }}>GROUP NAME</div>
+          <input
+            value={c.title || ""}
+            onChange={(e) => api.renameGroup(convoId, e.target.value)}
+            placeholder="name this group"
+            style={{ width: "100%", border: "var(--border)", borderRadius: "10px", background: "var(--panel-2)", padding: "8px 11px", fontSize: "13px", color: "var(--ink)", outline: "none", marginBottom: "12px" }}
+          />
+          <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", marginBottom: "8px" }}>MEMBERS · {(c.members || []).length}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
             {(c.members || []).map((id) => {
               const p = PEOPLE[id];
@@ -224,6 +231,18 @@ export default function ChatWindow({ api, convoId }: { api: DesktopApi; convoId:
             </div>
           );
         })}
+        {(() => {
+          // read receipt under your latest message (✓ sent → ✓✓ seen via realtime)
+          const last = c.messages[c.messages.length - 1];
+          if (!last || last.from !== "me") return null;
+          return (
+            <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "3px", marginTop: "-3px" }}>
+              <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", letterSpacing: "0.3px", color: c.seen ? "var(--accent)" : "var(--ink-soft)" }}>
+                {c.seen ? "✓✓ seen" : "✓ sent"}
+              </span>
+            </div>
+          );
+        })()}
         {c.typing && (
           <div style={{ display: "flex", gap: "7px", alignItems: "flex-end", justifyContent: "flex-start" }}>
             <div style={{ display: "flex", gap: "4px", padding: "10px 12px", background: "var(--bubble-them)", borderRadius: "15px", borderBottomLeftRadius: "5px" }}>
