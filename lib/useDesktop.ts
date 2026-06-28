@@ -11,7 +11,7 @@ import type {
 } from "./types";
 import type { ThemeId } from "./themes";
 import { decodeTheme } from "./themes";
-import { makeBlankState, PEOPLE, REPLIES, TINTS, peopleAll } from "./seed";
+import { makeBlankState, PEOPLE, TINTS, peopleAll } from "./seed";
 import { winSize } from "./styleHelpers";
 import { savePage, loadPage } from "./store";
 
@@ -203,13 +203,14 @@ export function useDesktop(): DesktopApi {
           const h = stateRef.current.profile.handle;
           const raw = localStorage.getItem("kirari:desktop:" + h);
           if (raw) {
-            const prefs = JSON.parse(raw) as { windows?: typeof stateRef.current.windows; dashBgType?: string; dashBgUrl?: string; dashBgColor?: string };
+            const prefs = JSON.parse(raw) as { windows?: typeof stateRef.current.windows; dashBgType?: string; dashBgUrl?: string; dashBgColor?: string; iconPos?: typeof stateRef.current.iconPos };
             setState((s) => ({
               ...s,
               windows: prefs.windows && prefs.windows.length ? prefs.windows : s.windows,
               dashBgType: (prefs.dashBgType as typeof s.dashBgType) ?? s.dashBgType,
               dashBgUrl: prefs.dashBgUrl ?? s.dashBgUrl,
               dashBgColor: prefs.dashBgColor ?? s.dashBgColor,
+              iconPos: prefs.iconPos && Object.keys(prefs.iconPos).length ? prefs.iconPos : s.iconPos,
             }));
           }
         } catch { /* */ }
@@ -295,9 +296,10 @@ export function useDesktop(): DesktopApi {
         dashBgType: state.dashBgType,
         dashBgUrl: state.dashBgUrl,
         dashBgColor: state.dashBgColor,
+        iconPos: state.iconPos,
       }));
     } catch { /* */ }
-  }, [state.windows, state.dashBgType, state.dashBgUrl, state.dashBgColor, state.profile.handle]);
+  }, [state.windows, state.dashBgType, state.dashBgUrl, state.dashBgColor, state.iconPos, state.profile.handle]);
 
   useEffect(() => {
     const handle = state.profile.handle;
@@ -452,40 +454,9 @@ export function useDesktop(): DesktopApi {
   );
 
   // ----------------------------------------------------------------- chat
-  const queueReply = useCallback((convoId: string) => {
-    const t = typersRef.current;
-    clearTimeout(t[convoId + "_t"]);
-    clearTimeout(t[convoId + "_r"]);
-    t[convoId + "_t"] = setTimeout(
-      () =>
-        setState((s) => ({
-          ...s,
-          convos: { ...s.convos, [convoId]: { ...s.convos[convoId], typing: true } },
-        })),
-      500
-    );
-    t[convoId + "_r"] = setTimeout(() => {
-      const c = stateRef.current.convos[convoId];
-      const r = REPLIES[Math.floor(Math.random() * REPLIES.length)];
-      let from = c.who as string;
-      if (c.kind === "group" && c.members) {
-        const m = c.members;
-        from = m[Math.floor(Math.random() * m.length)];
-      }
-      setState((s) => ({
-        ...s,
-        convos: {
-          ...s.convos,
-          [convoId]: {
-            ...s.convos[convoId],
-            typing: false,
-            messages: [...s.convos[convoId].messages, { id: Date.now() + 1, from, text: r }],
-          },
-        },
-      }));
-    }, 1700 + Math.random() * 900);
-  }, []);
-
+  // (No fake auto-replies. Real conversations are delivered over Supabase
+  // Realtime once connected; until then a sent message simply posts to the
+  // thread without a scripted bot answering.)
   const sendMsgInner = useCallback(
     (convoId: string, kind?: "text" | "sticker", val?: string) => {
       const c = stateRef.current.convos[convoId];
@@ -503,9 +474,8 @@ export function useDesktop(): DesktopApi {
           },
         },
       }));
-      queueReply(convoId);
     },
-    [queueReply]
+    []
   );
 
   const sendMsg = useCallback((convoId: string) => sendMsgInner(convoId, "text"), [sendMsgInner]);
@@ -536,7 +506,7 @@ export function useDesktop(): DesktopApi {
             draft: "",
             typing: false,
             unread: 0,
-            messages: [{ id: 1, from: personId, text: "hihi ♡ thanks for the knock!! (＾• ω •＾)" }],
+            messages: [],
           },
         },
       };
@@ -599,9 +569,8 @@ export function useDesktop(): DesktopApi {
           },
         };
       });
-      queueReply(convoId);
     },
-    [queueReply]
+    []
   );
 
   // add a person to a group by handle (lightweight friend if unknown)
@@ -625,7 +594,7 @@ export function useDesktop(): DesktopApi {
           [convoId]: {
             ...c,
             members: [...members, handle],
-            messages: [...c.messages, { id: Date.now(), from: handle, text: "joined the chat ✦" }],
+            messages: [...c.messages, { id: Date.now(), from: handle, text: "joined the chat" }],
           },
         },
       };
@@ -709,7 +678,7 @@ export function useDesktop(): DesktopApi {
       const ids = [...picked, ...invited];
       if (!ids.length) return;
       const gid = "g" + Date.now();
-      const title = (ng.name || "").trim() || "new group ✦";
+      const title = (ng.name || "").trim() || "new group";
       const opener = picked[0] || invited[0];
       setState((s) => {
         // register invited handles as lightweight friends so avatars/names resolve
@@ -725,7 +694,7 @@ export function useDesktop(): DesktopApi {
                 {
                   id: 2,
                   from: opener === invited[0] ? picked[0] || invited[0] : invited[0],
-                  text: "invites sent to " + invited.map((h) => "@" + h).join(", ") + " ✉",
+                  text: "invited " + invited.map((h) => "@" + h).join(", "),
                 },
               ]
             : [];
@@ -742,7 +711,7 @@ export function useDesktop(): DesktopApi {
               draft: "",
               typing: false,
               unread: 0,
-              messages: [{ id: 1, from: opener, text: "yooo new group lessgooo ✦" }, ...pendingNote],
+              messages: [{ id: 1, from: opener, text: "group started" }, ...pendingNote],
             },
           },
           newGroup: { name: "", picked: {}, invites: [], handleDraft: "" },
@@ -874,7 +843,7 @@ export function useDesktop(): DesktopApi {
         ...s.profile,
         links: [
           ...s.profile.links,
-          { id: "l" + Date.now(), emoji: "✦", label: "new link ♡", meta: "", kind: "ext" },
+          { id: "l" + Date.now(), emoji: "★", label: "new link", meta: "", kind: "ext" },
         ],
       },
     }));

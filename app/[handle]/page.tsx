@@ -24,7 +24,7 @@ export default function PublicPage() {
   const [page, setPage] = useState<PublishedPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [entered, setEntered] = useState(false);
-  const [exiting, setExiting] = useState(false);
+  const [wipe, setWipe] = useState(false);
   const [stats, setStats] = useState<{ views: number; reactions: number }>({ views: 0, reactions: 0 });
   const [reacted, setReacted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -131,9 +131,12 @@ export default function PublicPage() {
         if (ctx.state === "suspended") ctx.resume().catch(() => {});
       } catch { /* cross-origin or unsupported — plain playback still works */ }
     }
-    // play the horizontal wipe cutscene, then reveal the page
-    setExiting(true);
-    setTimeout(() => setEntered(true), 750);
+    // mount the real page beneath a vertical "anime" wipe, then peel the bars
+    // away to reveal it. The page is live underneath the whole time, so the
+    // cutscene is always visible (it never plays into an empty/black screen).
+    setEntered(true);
+    setWipe(true);
+    setTimeout(() => setWipe(false), 1050);
   }
 
   if (loading) return (
@@ -153,13 +156,14 @@ export default function PublicPage() {
       {/* audio element exists before enter so the click can start it */}
       {page.profile.audioUrl && <audio ref={audioRef} src={page.profile.audioUrl} crossOrigin="anonymous" loop preload="auto" />}
 
-      {!entered && <BootSplash handle={handle} ready onEnter={enter} profile={page.profile} exiting={exiting} />}
+      {!entered && <BootSplash handle={handle} ready onEnter={enter} profile={page.profile} />}
 
-      {/* horizontal cutscene wipe — vertical bars sweep across on enter */}
-      {exiting && !entered && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", pointerEvents: "none" }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} style={{ flex: 1, background: "var(--accent, #9a8cff)", transform: "scaleX(1)", transformOrigin: i % 2 === 0 ? "left" : "right", animation: `wipeOut .6s cubic-bezier(.7,0,.3,1) ${i * 0.06}s forwards` }} />
+      {/* anime-style vertical wipe — horizontal bars cover the screen, then peel
+          up/down to reveal the page mounted beneath. */}
+      {wipe && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 70, display: "flex", flexDirection: "column", pointerEvents: "none" }}>
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} style={{ flex: 1, background: "var(--accent, #9a8cff)", transformOrigin: i % 2 === 0 ? "top" : "bottom", animation: `wipeReveal .7s cubic-bezier(.76,0,.24,1) ${i * 0.07}s forwards` }} />
           ))}
         </div>
       )}
@@ -271,11 +275,11 @@ function NotFound({ handle }: { handle: string }) {
   );
 }
 
-function BootSplash({ handle, ready, onEnter, profile, exiting }: { handle: string; ready: boolean; onEnter: () => void; profile?: Profile; exiting?: boolean }) {
+function BootSplash({ handle, ready, onEnter, profile }: { handle: string; ready: boolean; onEnter: () => void; profile?: Profile }) {
   const hasBgMedia = profile && (profile.pageBgType === "image" || profile.pageBgType === "video") && profile.pageBgUrl;
   return (
     <div
-      onClick={ready && !exiting ? onEnter : undefined}
+      onClick={ready ? onEnter : undefined}
       style={{
         position: "fixed",
         inset: 0,
@@ -288,7 +292,6 @@ function BootSplash({ handle, ready, onEnter, profile, exiting }: { handle: stri
         background: "var(--bg, #0e0e12)",
         overflow: "hidden",
         transition: "background .3s ease",
-        animation: exiting ? "splashFade .4s ease forwards" : undefined,
       }}
     >
       {/* blurred preview of the page's own background behind the splash */}

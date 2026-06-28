@@ -93,7 +93,7 @@ export default function RequestsWindow({ api }: { api: DesktopApi }) {
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
         {incoming.length === 0 && (
           <div style={{ fontSize: "12px", color: "var(--ink-soft)", padding: "6px 2px" }}>
-            no new requests — your door is quiet ✦
+            no incoming requests right now
           </div>
         )}
         {incoming.map((r) => (
