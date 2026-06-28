@@ -120,6 +120,7 @@ export interface Convo {
   typing: boolean;
   unread: number;
   messages: ChatMessage[];
+  seen?: boolean; // partner has read your latest message (set by realtime)
 }
 
 export interface GuestEntry {

@@ -52,6 +52,7 @@ export interface DesktopApi {
   sendAttachment: (convoId: string, file: { name: string; type: string; url: string }) => void;
   addToGroup: (convoId: string, handle: string) => void;
   removeFromGroup: (convoId: string, memberId: string) => void;
+  renameGroup: (convoId: string, title: string) => void;
 
   // guestbook
   setGuest: (k: "name" | "text", v: string) => void;
@@ -632,6 +633,14 @@ export function useDesktop(): DesktopApi {
     });
   }, []);
 
+  const renameGroup = useCallback((convoId: string, title: string) => {
+    setState((s) => {
+      const c = s.convos[convoId];
+      if (!c || c.kind !== "group") return s;
+      return { ...s, convos: { ...s.convos, [convoId]: { ...c, title } } };
+    });
+  }, []);
+
   // ------------------------------------------------------------- guestbook
   const setGuest = useCallback((k: "name" | "text", v: string) => {
     setState((s) => ({ ...s, guestForm: { ...s.guestForm, [k]: v } }));
@@ -1054,6 +1063,7 @@ export function useDesktop(): DesktopApi {
     sendAttachment,
     addToGroup,
     removeFromGroup,
+    renameGroup,
     setGuest,
     pickGuestFx,
     pickGuestColor,
