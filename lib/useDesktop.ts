@@ -153,9 +153,13 @@ export function useDesktop(): DesktopApi {
     // hydratedRef gates the save effect so the placeholder never overwrites the
     // real handle's data.
     (async () => {
+      // the handle we actually hydrate to — used by the finally block to restore
+      // the right account's desktop prefs (stateRef is still stale in there).
+      let resolvedHandle = stateRef.current.profile.handle;
       try {
         const signup = window.localStorage.getItem("kirari:signupHandle");
         if (signup) {
+          resolvedHandle = signup;
           window.localStorage.removeItem("kirari:signupHandle");
           window.localStorage.setItem("kirari:lastHandle", signup);
           const existing = await loadPage(signup);
@@ -179,6 +183,7 @@ export function useDesktop(): DesktopApi {
         }
         const last = window.localStorage.getItem("kirari:lastHandle");
         if (last) {
+          resolvedHandle = last;
           const existing = await loadPage(last);
           if (existing && existing.profile?.handle === last) {
             setState((s) => ({
@@ -200,7 +205,7 @@ export function useDesktop(): DesktopApi {
       } finally {
         // restore private desktop prefs (window layout + dashboard wallpaper)
         try {
-          const h = stateRef.current.profile.handle;
+          const h = resolvedHandle;
           const raw = localStorage.getItem("kirari:desktop:" + h);
           if (raw) {
             const prefs = JSON.parse(raw) as { windows?: typeof stateRef.current.windows; dashBgType?: string; dashBgUrl?: string; dashBgColor?: string; iconPos?: typeof stateRef.current.iconPos };

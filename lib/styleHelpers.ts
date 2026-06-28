@@ -152,6 +152,11 @@ input,textarea,button,select{font-family:inherit}
 @keyframes hue{0%{background-position:0% 50%}100%{background-position:200% 50%}}
 @keyframes glowpulse{0%,100%{text-shadow:0 0 7px var(--accent)}50%{text-shadow:0 0 15px var(--accent),0 0 26px var(--accent)}}
 @keyframes textglow{0%,100%{text-shadow:0 0 7px var(--accent)}50%{text-shadow:0 0 15px var(--accent),0 0 26px var(--accent)}}
+/* modern window-chrome controls (borderless, hover-highlight, mac-style close) */
+.kw-ctrl{width:26px;height:24px;display:flex;align-items:center;justify-content:center;border:none;border-radius:7px;background:transparent;color:var(--titlebar-ink);cursor:pointer;padding:0;font-size:11px;line-height:1;opacity:.72;transition:background .12s ease,opacity .12s ease,color .12s ease}
+.kw-ctrl:hover{background:color-mix(in srgb,var(--titlebar-ink) 26%,transparent);opacity:1}
+.kw-ctrl:active{transform:translateY(.5px)}
+.kw-ctrl-close:hover{background:#ff5f57;color:#fff;opacity:1}
 `;
 
 // Safe first-letter for avatars — never throws on undefined/empty.
