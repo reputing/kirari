@@ -277,7 +277,7 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
           width: isHero ? "128px" : isMinimal ? "92px" : isCompact ? "84px" : "104px",
           height: isHero ? "128px" : isMinimal ? "92px" : isCompact ? "84px" : "104px",
           borderRadius: P.pfpShape === "circle" ? "50%" : "26px",
-          border: "3px solid " + P.pfpColor,
+          border: P.pfpColor === "none" ? "none" : "3px solid " + P.pfpColor,
           background: P.pfpUrl
             ? `center/cover url(${P.pfpUrl})`
             : "repeating-linear-gradient(45deg,var(--panel-2),var(--panel-2) 7px,var(--line) 7px,var(--line) 14px)",
@@ -466,9 +466,10 @@ function EffectsOverlay({ profile, embedded, show }: { profile: Profile; embedde
   const P = profile;
   const pos: CSSProperties = { position: embedded ? "absolute" : "fixed", inset: 0, pointerEvents: "none" };
   const density = Math.max(0, Math.min(100, P.ambienceDensity ?? 40));
-  const count = P.ambience && P.ambience !== "none" ? Math.round(6 + (density / 100) * 30) : 0;
-  const glyph = P.ambience === "petals" ? "❀" : P.ambience === "snow" ? "❄" : P.ambience === "embers" ? "•" : P.ambience === "orbs" ? "●" : P.ambience === "rain" ? "|" : "";
-  const color = P.ambience === "embers" ? "#ff9a4d" : P.ambience === "snow" ? "#fff" : P.ambience === "orbs" ? "var(--accent)" : P.ambience === "rain" ? "rgba(180,200,255,.6)" : "var(--deco, #ffb8da)";
+  const isRain = P.ambience === "rain";
+  const count = P.ambience && P.ambience !== "none" ? Math.round(6 + (density / 100) * (isRain ? 60 : 30)) : 0;
+  const glyph = P.ambience === "petals" ? "❀" : P.ambience === "snow" ? "❄" : P.ambience === "embers" ? "•" : P.ambience === "orbs" ? "●" : "";
+  const color = P.ambience === "embers" ? "#ff9a4d" : P.ambience === "snow" ? "#fff" : P.ambience === "orbs" ? "var(--accent)" : "var(--deco, #ffb8da)";
   // default: behind the content so it never crosses the face/name. Opacity
   // defaults lower so it reads as atmosphere, not a snowstorm on top of you.
   const layerBehind = (P.ambienceLayer || "behind") === "behind";
@@ -481,11 +482,21 @@ function EffectsOverlay({ profile, embedded, show }: { profile: Profile; embedde
         <div style={{ ...pos, zIndex: ambZ, opacity: show ? ambOpacity : 0, transition: "opacity 1s ease", overflow: "hidden" }}>
           {Array.from({ length: count }).map((_, i) => {
             const left = (i * 47 + 13) % 100;
+            if (isRain) {
+              // thin angled streaks falling fast and straight (no rotation)
+              const dur = 0.5 + ((i * 7) % 7) / 10; // 0.5s–1.2s
+              const delay = -((i * 13) % 12) / 10;
+              const len = 14 + (i % 4) * 7;
+              return (
+                <span key={i} style={{ position: "absolute", left: left + "%", top: "-8%", width: "1.5px", height: len + "px", borderRadius: "2px", background: "linear-gradient(to bottom, transparent, rgba(190,205,255,.75))", transform: "rotate(12deg)", animation: `rainfall ${dur}s linear ${delay}s infinite` }} />
+              );
+            }
             const dur = 6 + ((i * 7) % 9);
             const delay = -((i * 13) % 12);
-            const size = P.ambience === "rain" ? 14 + (i % 3) * 6 : 8 + (i % 5) * 4;
+            const size = 8 + (i % 5) * 4;
+            const sway = P.ambience === "petals" || P.ambience === "snow";
             return (
-              <span key={i} style={{ position: "absolute", left: left + "%", top: "-6%", fontSize: size + "px", color, opacity: 0.7, textShadow: P.ambience === "embers" ? "0 0 6px #ff7a2d" : "none", animation: `fall ${dur}s linear ${delay}s infinite` }}>{glyph}</span>
+              <span key={i} style={{ position: "absolute", left: left + "%", top: "-6%", fontSize: size + "px", color, opacity: 0.7, textShadow: P.ambience === "embers" ? "0 0 6px #ff7a2d" : "none", animation: `fall ${dur}s linear ${delay}s infinite${sway ? `, sway ${3 + (i % 3)}s ease-in-out infinite` : ""}` }}>{glyph}</span>
             );
           })}
         </div>

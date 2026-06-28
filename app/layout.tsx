@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* All display/body/pixel faces used across the 4 skins. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DotGothic16&family=Mochiy+Pop+P+One&family=Pixelify+Sans:wght@400..700&family=Varela+Round&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bungee&family=Cherry+Bomb+One&family=DM+Serif+Display&family=DotGothic16&family=Gloock&family=Hi+Melody&family=Mochiy+Pop+P+One&family=Monoton&family=Orbitron:wght@400..700&family=Outfit:wght@400;500;700&family=Pixelify+Sans:wght@400..700&family=Rampart+One&family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@400;500;700&family=VT323&family=Varela+Round&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap"
           rel="stylesheet"
         />
       </head>

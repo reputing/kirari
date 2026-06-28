@@ -5,7 +5,7 @@ import type { ThemeId } from "./themes";
 // store can be swapped for real Postgres rows with minimal churn.
 // ============================================================================
 
-export type TextFx = "none" | "glow" | "rainbow" | "sticker" | "retro3d";
+export type TextFx = "none" | "glow" | "rainbow" | "sticker" | "retro3d" | "neon" | "chrome" | "flame";
 export type BgPattern = "none" | "dots" | "grid" | "gingham" | "stripes" | "hearts";
 export type PfpShape = "rounded" | "circle";
 export type Deco = "♡" | "★" | "✿" | "none";

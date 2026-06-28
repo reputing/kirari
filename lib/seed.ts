@@ -21,14 +21,15 @@ export const REPLIES = [
   "be there in 5 ✦",
 ];
 
+// Optional quick-fill suggestions for the status field. Users type their own —
+// these are just starting points, not a fixed preset list.
 export const MOODS = [
-  "♡ sleepy + online",
-  "★ making art rn",
-  "♫ vibing to dream pop",
-  "✧ away, brb",
-  "⊹ do not disturb",
-  "꒰ᐢ. .ᐢ꒱ napping",
-  "☆ feeling sparkly",
+  "online",
+  "away",
+  "do not disturb",
+  "busy",
+  "sleeping",
+  "listening to music",
 ];
 
 export const STICKERS = ["🌟", "♡", "✿", "★", "☁", "🍓", "✦", "🐰", "✧", "💿", "🎀", "⭐"];
@@ -67,8 +68,19 @@ export const FONTS: { id: string; label: string; value: string }[] = [
   { id: "zenkaku", label: "Zen Kaku (clean)", value: "'Zen Kaku Gothic New', sans-serif" },
   { id: "varela", label: "Varela (friendly)", value: "'Varela Round', sans-serif" },
   { id: "dmserif", label: "DM Serif (elegant)", value: "'DM Serif Display', serif" },
+  { id: "gloock", label: "Gloock (high serif)", value: "'Gloock', serif" },
+  { id: "spacegro", label: "Space Grotesk", value: "'Space Grotesk', sans-serif" },
+  { id: "outfit", label: "Outfit (modern)", value: "'Outfit', sans-serif" },
+  { id: "orbitron", label: "Orbitron (techno)", value: "'Orbitron', sans-serif" },
+  { id: "monoton", label: "Monoton (neon)", value: "'Monoton', cursive" },
+  { id: "bungee", label: "Bungee (signage)", value: "'Bungee', cursive" },
+  { id: "cherry", label: "Cherry Bomb (bubbly)", value: "'Cherry Bomb One', cursive" },
+  { id: "rampart", label: "Rampart (3D)", value: "'Rampart One', cursive" },
+  { id: "himelody", label: "Hi Melody (hand)", value: "'Hi Melody', cursive" },
   { id: "dot", label: "DotGothic (pixel)", value: "'DotGothic16', monospace" },
   { id: "pixelify", label: "Pixelify (retro)", value: "'Pixelify Sans', monospace" },
+  { id: "silkscreen", label: "Silkscreen (8-bit)", value: "'Silkscreen', monospace" },
+  { id: "vt323", label: "VT323 (terminal)", value: "'VT323', monospace" },
 ];
 
 export function makeInitialState(): AppState {

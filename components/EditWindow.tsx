@@ -23,6 +23,9 @@ const FXS: [TextFx, string][] = [
   ["none", "plain"],
   ["glow", "glow"],
   ["rainbow", "rainbow"],
+  ["neon", "neon"],
+  ["chrome", "chrome"],
+  ["flame", "flame"],
   ["sticker", "sticker"],
   ["retro3d", "retro 3d"],
 ];
@@ -53,9 +56,10 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
     height: "64px",
     flex: "0 0 auto",
     borderRadius: P.pfpShape === "circle" ? "50%" : "16px",
-    border: "3px solid " + P.pfpColor,
-    background:
-      "repeating-linear-gradient(45deg,var(--panel-2),var(--panel-2) 6px,var(--line) 6px,var(--line) 12px)",
+    border: P.pfpColor === "none" ? "3px dashed var(--line)" : "3px solid " + P.pfpColor,
+    background: P.pfpUrl
+      ? `center/cover url(${P.pfpUrl})`
+      : "repeating-linear-gradient(45deg,var(--panel-2),var(--panel-2) 6px,var(--line) 6px,var(--line) 12px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -293,6 +297,24 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
             ))}
           </ControlRow>
           <ControlRow label="frame">
+            <button
+              title="no frame"
+              style={{
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                cursor: "pointer",
+                background: "var(--panel)",
+                color: "var(--ink-soft)",
+                fontSize: "12px",
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: P.pfpColor === "none" ? "2.5px solid var(--ink)" : "2px dashed var(--line)",
+              }}
+              onClick={() => api.setProfileVal("pfpColor", "none")}
+            >⃠</button>
             {PCOLORS.map((c) => (
               <button
                 key={c}
@@ -308,6 +330,27 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
                 onClick={() => api.setProfileVal("pfpColor", c)}
               ></button>
             ))}
+            <label
+              title="custom frame color"
+              style={{
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                overflow: "hidden",
+                cursor: "pointer",
+                flex: "0 0 auto",
+                position: "relative",
+                background: "conic-gradient(from 0deg,#ff7ec0,#ffd36e,#7be0c0,#7cc0ff,#c79bff,#ff7ec0)",
+                border: P.pfpColor && P.pfpColor.startsWith("#") ? "2.5px solid var(--ink)" : "2px solid #fff",
+              }}
+            >
+              <input
+                type="color"
+                value={/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test((P.pfpColor || "").trim()) ? P.pfpColor : "#ff7ec0"}
+                onChange={(e) => api.setProfileVal("pfpColor", e.target.value)}
+                style={{ opacity: 0, width: "100%", height: "100%", cursor: "pointer", border: "none" }}
+              />
+            </label>
           </ControlRow>
           <ControlRow label="charm">
             {DECOS.map(([id, label]) => (

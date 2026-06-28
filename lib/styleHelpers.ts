@@ -48,6 +48,35 @@ export function nameStyleFor(fx: TextFx, size?: number): CSSProperties {
       textShadow:
         "1px 1px 0 var(--ink),2px 2px 0 var(--ink),4px 4px 0 rgba(0,0,0,.18)",
     };
+  if (fx === "neon")
+    return {
+      ...base,
+      color: "#fff",
+      textShadow: "0 0 6px var(--accent), 0 0 14px var(--accent)",
+      animation: "neonflicker 3.5s steps(1,end) infinite",
+    };
+  if (fx === "chrome")
+    return {
+      ...base,
+      backgroundImage:
+        "linear-gradient(180deg,#fdfdff 0%,#c7ccd6 42%,#8b93a3 52%,#eef1f6 70%,#aab2c0 100%)",
+      WebkitBackgroundClip: "text",
+      backgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      color: "transparent",
+      WebkitTextStroke: "0.6px rgba(60,66,80,.35)",
+      filter: "drop-shadow(0 1px 1px rgba(0,0,0,.35))",
+    };
+  if (fx === "flame")
+    return {
+      ...base,
+      backgroundImage: "linear-gradient(180deg,#fff3b0 0%,#ffcf3a 30%,#ff7a1a 70%,#ff3b1a 100%)",
+      WebkitBackgroundClip: "text",
+      backgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      color: "transparent",
+      animation: "flameglow 1.6s ease-in-out infinite",
+    };
   return base;
 }
 
@@ -111,7 +140,10 @@ html,body{margin:0;padding:0;overflow:hidden}
 ::-webkit-scrollbar-thumb{background:var(--line,#d8c4d2);border-radius:999px}
 ::-webkit-scrollbar-track{background:transparent}
 input,textarea,button,select{font-family:inherit}
-@keyframes fall{0%{transform:translateY(-16vh) rotate(0)}100%{transform:translateY(118vh) rotate(330deg)}}
+@keyframes fall{0%{transform:translateY(-16vh) rotate(0)}100%{transform:translateY(118vh) rotate(24deg)}}
+@keyframes rainfall{0%{transform:translateY(-14vh)}100%{transform:translateY(118vh)}}
+@keyframes neonflicker{0%,100%{text-shadow:0 0 6px var(--accent),0 0 14px var(--accent)}48%{text-shadow:none}49%{text-shadow:0 0 6px var(--accent),0 0 22px var(--accent),0 0 38px var(--accent)}50%{text-shadow:none}51%{text-shadow:0 0 6px var(--accent),0 0 14px var(--accent)}}
+@keyframes flameglow{0%,100%{filter:drop-shadow(0 -1px 4px #ff5e1a) drop-shadow(0 -2px 9px #ffb020)}50%{filter:drop-shadow(0 -2px 7px #ff7a1a) drop-shadow(0 -4px 14px #ffd24a)}}
 @keyframes twinkle{0%,100%{opacity:.2}50%{opacity:.85}}
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
 @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-5px);opacity:1}}

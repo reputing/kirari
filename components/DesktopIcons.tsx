@@ -13,8 +13,9 @@ export interface IconDef {
 }
 
 // Free-floating desktop icons. Each sits at a default grid slot unless the user
-// has dragged it (positions live in state.iconPos). Double-click opens the app;
-// a single drag relocates it. Right-click bubbles up to the desktop menu.
+// has dragged it (positions live in state.iconPos). A single click opens the
+// app; dragging relocates it and snaps to an even grid. Right-click bubbles up
+// to the desktop menu.
 export default function DesktopIcons({
   api,
   defs,
@@ -98,7 +99,19 @@ function DesktopIcon({
       dragging.current = false;
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
-      if (moved.current) api.setIconPos(def.id, start.current.x, start.current.y);
+      if (moved.current) {
+        // snap to the same even grid the default layout uses, so dropped icons
+        // always line up instead of landing at arbitrary pixel offsets
+        const GX = 92, GY = 84, OX = 16, OY = 16;
+        const sx = Math.max(0, Math.round((start.current.x - OX) / GX) * GX + OX);
+        const sy = Math.max(0, Math.round((start.current.y - OY) / GY) * GY + OY);
+        el.style.left = sx + "px";
+        el.style.top = sy + "px";
+        api.setIconPos(def.id, sx, sy);
+      } else {
+        // a clean click (no drag) opens the app — single click, no double-click
+        def.open();
+      }
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -128,7 +141,6 @@ function DesktopIcon({
       ref={ref}
       style={style}
       onMouseDown={onMouseDown}
-      onDoubleClick={() => def.open()}
       onContextMenu={(e) => onIconContext(e, def)}
       title={def.label}
     >

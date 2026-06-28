@@ -11,11 +11,11 @@ import { getSession, signOut, changePassword } from "@/lib/auth";
 import { SectionLabel } from "./shared";
 
 const TOGGLE_DEFS: { key: keyof DesktopApi["state"]["toggles"]; label: string; desc: string }[] = [
-  { key: "knock", label: "let strangers knock", desc: "anyone can start a chat from your links" },
-  { key: "counter", label: "show visitor counter", desc: "display your visits + knocks publicly" },
-  { key: "statusBlink", label: "blink my status light", desc: "pulse the dot next to your mood" },
-  { key: "sounds", label: "play cute sounds", desc: "soft chimes on new messages (＾• ω •＾)" },
-  { key: "rain", label: "sparkle rain", desc: "let hearts + stars drift down the page" },
+  { key: "knock", label: "allow knocks", desc: "anyone can start a chat from your links" },
+  { key: "counter", label: "show visitor counter", desc: "display your visits and knocks publicly" },
+  { key: "statusBlink", label: "pulse status light", desc: "the dot next to your status fades in and out" },
+  { key: "sounds", label: "interface sounds", desc: "subtle clicks and chimes as you navigate" },
+  { key: "rain", label: "desktop particles", desc: "floating sparkles drift across your desktop" },
 ];
 
 const BUILT_INS: ThemeId[] = ["sugar", "angel", "kuro", "ostan"];
@@ -150,11 +150,23 @@ export default function SettingsWindow({ api }: { api: DesktopApi }) {
         })}
       </div>
 
-      {/* status / mood */}
+      {/* status / mood — free text, with optional quick-fill suggestions */}
       <SectionLabel mt="20px 0 10px">✦ STATUS</SectionLabel>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
+      <div style={{ position: "relative", marginBottom: "8px" }}>
+        <input
+          value={state.mood}
+          onChange={(e) => api.setMood(e.target.value.slice(0, 60))}
+          placeholder="write your own status…"
+          style={{ width: "100%", border: "var(--border)", borderRadius: "12px", background: "var(--panel-2)", padding: "10px 36px 10px 12px", fontSize: "13px", color: "var(--ink)", outline: "none" }}
+        />
+        {!!state.mood && (
+          <button onClick={() => api.setMood("")} title="clear status" style={{ position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "var(--ink-soft)", cursor: "pointer", fontSize: "13px" }}>✕</button>
+        )}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+        <span style={{ fontFamily: "var(--font-pixel)", fontSize: "9px", color: "var(--ink-soft)", alignSelf: "center", marginRight: "2px" }}>QUICK:</span>
         {MOODS.map((m) => (
-          <button key={m} onClick={() => api.setMood(m)} style={{ padding: "7px 12px", fontSize: "12.5px", cursor: "pointer", borderRadius: "999px", border: m === state.mood ? "2px solid var(--accent)" : "var(--border)", background: m === state.mood ? "var(--tab-active)" : "var(--panel-2)", color: m === state.mood ? "var(--accent)" : "var(--ink)", fontWeight: m === state.mood ? 700 : 400 }}>
+          <button key={m} onClick={() => api.setMood(m)} style={{ padding: "5px 11px", fontSize: "12px", cursor: "pointer", borderRadius: "999px", border: m === state.mood ? "2px solid var(--accent)" : "var(--border)", background: m === state.mood ? "var(--tab-active)" : "var(--panel-2)", color: m === state.mood ? "var(--accent)" : "var(--ink-soft)", fontWeight: m === state.mood ? 700 : 400 }}>
             {m}
           </button>
         ))}
