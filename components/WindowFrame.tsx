@@ -77,40 +77,27 @@ export default function WindowFrame({
         display: w.min ? "none" : "flex",
         flexDirection: "column",
         background: "var(--panel)",
-        border: "var(--border)",
-        borderRadius: w.max ? "0" : "var(--radius)",
-        boxShadow: isFocused ? "var(--shadow)" : "0 8px 22px -14px rgba(0,0,0,.45)",
+        border: "1px solid color-mix(in srgb, var(--ink) 12%, transparent)",
+        borderRadius: w.max ? "0" : "max(13px, var(--radius))",
+        boxShadow: isFocused
+          ? "0 20px 50px -20px rgba(0,0,0,.55), 0 4px 14px -8px rgba(0,0,0,.32)"
+          : "0 10px 26px -18px rgba(0,0,0,.42)",
         overflow: "hidden",
-        transition: "box-shadow .15s",
+        transition: "box-shadow .18s ease",
       };
 
   const barStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
-    height: "34px",
+    gap: "9px",
+    height: "38px",
     flex: "0 0 auto",
-    padding: "0 10px",
+    padding: "0 8px 0 11px",
     background: "var(--titlebar)",
     color: "var(--titlebar-ink)",
     cursor: mobile ? "default" : "grab",
     userSelect: "none",
-  };
-
-  const ctrlStyle: CSSProperties = {
-    width: "19px",
-    height: "17px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "10px",
-    lineHeight: 1,
-    border: "1px solid rgba(255,255,255,.5)",
-    borderRadius: "3px",
-    background: "rgba(255,255,255,.12)",
-    color: "var(--titlebar-ink)",
-    cursor: "pointer",
-    padding: 0,
+    boxShadow: "inset 0 -1px 0 rgba(0,0,0,.14)",
   };
 
   const bodyStyle: CSSProperties = {
@@ -130,7 +117,22 @@ export default function WindowFrame({
         onMouseDown={(e) => api.startDrag(w.id, e)}
         onContextMenu={(e) => onTitleContext?.(e, w.id)}
       >
-        <span style={{ fontSize: "12px", lineHeight: 1, flex: "0 0 auto" }}>{meta.icon}</span>
+        <span
+          style={{
+            width: "21px",
+            height: "21px",
+            borderRadius: "7px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "11px",
+            lineHeight: 1,
+            flex: "0 0 auto",
+            background: "color-mix(in srgb, var(--titlebar-ink) 18%, transparent)",
+          }}
+        >
+          {meta.icon}
+        </span>
         <span
           style={{
             flex: 1,
@@ -145,16 +147,16 @@ export default function WindowFrame({
         >
           {meta.title}
         </span>
-        <div style={{ display: "flex", gap: "5px", flex: "0 0 auto" }} onMouseDown={(e) => e.stopPropagation()}>
-          <button style={ctrlStyle} onClick={() => api.minimizeWindow(w.id)}>
+        <div style={{ display: "flex", gap: "3px", flex: "0 0 auto" }} onMouseDown={(e) => e.stopPropagation()}>
+          <button className="kw-ctrl" title="minimize" onClick={() => api.minimizeWindow(w.id)}>
             –
           </button>
           {!mobile && (
-            <button style={ctrlStyle} onClick={() => api.toggleMax(w.id)}>
-              ▢
+            <button className="kw-ctrl" title={w.max ? "restore" : "maximize"} onClick={() => api.toggleMax(w.id)}>
+              {w.max ? "❐" : "▢"}
             </button>
           )}
-          <button style={ctrlStyle} onClick={() => api.closeWindow(w.id)}>
+          <button className="kw-ctrl kw-ctrl-close" title="close" onClick={() => api.closeWindow(w.id)}>
             ✕
           </button>
         </div>
