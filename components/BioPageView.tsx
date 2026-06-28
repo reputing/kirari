@@ -96,6 +96,9 @@ export default function BioPageView({
   const Wrapper = embedded ? "div" : "div";
 
   const gradeFilter = gradeCss(P.grade);
+  // guns.lol vibe: the minimal layout sits vertically centered on the wallpaper.
+  // min-height (not height) keeps tall pages fully scrollable.
+  const centeredLayout = !embedded && P.pageLayout === "minimal";
 
   return (
     <Wrapper
@@ -121,7 +124,9 @@ export default function BioPageView({
           zIndex: 3,
           maxWidth: embedded ? "100%" : (P.pageLayout === "minimal" || P.cardless ? "440px" : "520px"),
           margin: "0 auto",
-          padding: embedded ? "20px 14px 30px" : "min(11vh, 90px) 22px 60px",
+          minHeight: centeredLayout ? "100vh" : undefined,
+          justifyContent: centeredLayout ? "center" : undefined,
+          padding: embedded ? "20px 14px 30px" : centeredLayout ? "60px 22px" : "min(11vh, 90px) 22px 60px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -136,7 +141,7 @@ export default function BioPageView({
         </div>
         {!embedded && (
           <div style={{ ...reveal(5), marginTop: "34px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", opacity: 0.8 }}>
-            <a href="/" style={{ color: "inherit", textDecoration: "none" }}>✦ made on kirari.cafe</a>
+            <a href="/" style={{ color: "inherit", textDecoration: "none" }}>made on kirari.cafe</a>
           </div>
         )}
       </main>
@@ -206,6 +211,38 @@ function surface(profile: Profile, extra?: CSSProperties): CSSProperties {
   };
 }
 
+// Stable per-handle UID (guns.lol-style), shown on hover over the card.
+function uidFromHandle(h: string): string {
+  let n = 2166136261;
+  for (let i = 0; i < h.length; i++) { n ^= h.charCodeAt(i); n = Math.imul(n, 16777619); }
+  const num = 100000 + ((n >>> 0) % 9900000);
+  return num.toLocaleString();
+}
+
+// Typewriter name effect: types the name, holds, deletes, repeats — with cursor.
+function TypingName({ text }: { text: string }) {
+  const [n, setN] = useState(0);
+  const [dir, setDir] = useState<1 | -1>(1);
+  useEffect(() => {
+    const full = text || "";
+    let t: ReturnType<typeof setTimeout>;
+    if (dir === 1) {
+      if (n < full.length) t = setTimeout(() => setN(n + 1), 110);
+      else t = setTimeout(() => setDir(-1), 1700);
+    } else {
+      if (n > 0) t = setTimeout(() => setN(n - 1), 55);
+      else t = setTimeout(() => setDir(1), 450);
+    }
+    return () => clearTimeout(t);
+  }, [n, dir, text]);
+  return (
+    <>
+      {(text || "").slice(0, n)}
+      <span aria-hidden style={{ animation: "blink 1s steps(1) infinite", fontWeight: 400 }}>|</span>
+    </>
+  );
+}
+
 function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal, onKnock }: { profile: Profile; mood: string; views: number; reactions: number; reacted: boolean; onReact?: () => void; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
   const P = profile;
   const onMedia = P.pageBgType === "image" || P.pageBgType === "video";
@@ -216,8 +253,9 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
   const softInk = overMedia ? "rgba(255,255,255,.82)" : "var(--ink-soft)";
   const inkOnMedia = overMedia ? "#fff" : "var(--ink)";
 
-  // optional 3D tilt on hover
+  // optional 3D tilt on hover + UID-on-hover state
   const cardRef = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState(false);
   function onMove(e: React.MouseEvent) {
     if (!P.tilt || !cardRef.current) return;
     const r = cardRef.current.getBoundingClientRect();
@@ -226,8 +264,10 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
     cardRef.current.style.transform = `perspective(800px) rotateX(${(-py * 7).toFixed(2)}deg) rotateY(${(px * 7).toFixed(2)}deg)`;
   }
   function onLeave() {
+    setHovered(false);
     if (cardRef.current) cardRef.current.style.transform = "perspective(800px) rotateX(0) rotateY(0)";
   }
+  const uid = uidFromHandle(P.handle || "");
   const idleAnim: CSSProperties = P.cardAnim === "float" ? { animation: "cardfloat 5s ease-in-out infinite" } : P.cardAnim === "pulse" ? { animation: "cardpulse 3.5s ease-in-out infinite" } : {};
   const neon: CSSProperties = P.neonGlow ? { boxShadow: "0 0 22px -2px var(--accent), 0 0 50px -10px var(--accent)" } : {};
   const animBorder: CSSProperties = P.animatedBorder
@@ -242,22 +282,36 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
   const isHero = layout === "hero";
   const isCompact = layout === "compact";
 
-  // when minimal/hero, the card surface disappears and content sits on the bg
-  const containerSurface: CSSProperties = isMinimal || isHero
+  // minimal = guns.lol vibe: a centered card that's translucent but still there
+  // (frosted glass), readable over any wallpaper. hero stays bare. cardless
+  // forces a truly transparent surface regardless of layout.
+  const frosted: CSSProperties = {
+    background: "color-mix(in srgb, var(--panel) 26%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+    boxShadow: "0 28px 70px -30px rgba(0,0,0,.7)",
+    borderRadius: "var(--radius)",
+  };
+  const containerSurface: CSSProperties = isMinimal
+    ? (P.cardless ? { background: "transparent", border: "none", boxShadow: "none" } : { ...frosted, ...neon, ...animBorder })
+    : isHero
     ? { background: "transparent", border: "none", boxShadow: "none", backdropFilter: "none" }
     : { ...surface(P, { borderRadius: "var(--radius)" }), ...neon, ...animBorder };
 
-  const containerPad = isMinimal ? "0" : isHero ? "10px 0 0" : isCompact ? "18px 16px" : (P.cardless ? "0 0 8px" : "26px 22px");
+  const containerPad = isMinimal ? (P.cardless ? "0 0 8px" : "28px 24px") : isHero ? "10px 0 0" : isCompact ? "18px 16px" : (P.cardless ? "0 0 8px" : "26px 22px");
 
   return (
     <div
       ref={cardRef}
       onMouseMove={onMove}
+      onMouseEnter={() => setHovered(true)}
       onMouseLeave={onLeave}
       style={{
         ...containerSurface,
         ...reveal(3),
         ...idleAnim,
+        position: "relative",
         width: "100%",
         padding: containerPad,
         display: "flex",
@@ -269,6 +323,13 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
         transformStyle: "preserve-3d",
       }}
     >
+      {/* UID pill — fades in on hover (guns.lol style) */}
+      {P.showUid !== false && (
+        <div style={{ position: "absolute", top: "-11px", left: "50%", transform: "translateX(-50%)", opacity: hovered ? 1 : 0, transition: "opacity .25s ease", pointerEvents: "none", fontFamily: "var(--font-pixel)", fontSize: "9px", letterSpacing: "0.5px", color: softInk, background: "color-mix(in srgb, var(--panel) 72%, transparent)", border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)", borderRadius: "999px", padding: "3px 10px", backdropFilter: "blur(6px)", whiteSpace: "nowrap", zIndex: 4 }}>
+          UID {uid}
+        </div>
+      )}
+
       {/* avatar — its own reveal (stage 2) */}
       <div
         style={{
@@ -290,7 +351,13 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
         )}
       </div>
 
-      <h1 style={{ margin: 0, ...nameStyleFor(P.textFx, isHero ? 36 : 30), ...textGlow, ...((P.outlineText || isMinimal) ? { WebkitTextStroke: "1.5px rgba(0,0,0,.6)", paintOrder: "stroke fill" } as CSSProperties : {}) }}>{P.name}</h1>
+      {P.textFx === "typing" ? (
+        <h1 style={{ margin: 0, ...nameStyleFor("none", isHero ? 36 : 30), color: "var(--accent)", ...textGlow }}>
+          <TypingName text={P.name} />
+        </h1>
+      ) : (
+        <h1 style={{ margin: 0, ...nameStyleFor(P.textFx, isHero ? 36 : 30), ...textGlow, ...((P.outlineText || isMinimal) ? { WebkitTextStroke: "1.5px rgba(0,0,0,.6)", paintOrder: "stroke fill" } as CSSProperties : {}) }}>{P.name}</h1>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", flexWrap: "wrap", justifyContent: "center" }}>
         <span style={{ fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow }}>@{P.handle}</span>
       </div>
@@ -319,16 +386,21 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
       )}
 
       {P.bio && <p style={{ margin: isMinimal ? "11px 0 0" : "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "360px", ...textGlow }}>{P.bio}</p>}
-      {!isMinimal && <div style={{ marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: softInk, ...textGlow }}>{P.since}</div>}
+      {P.location && (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "8px", fontSize: "12.5px", color: softInk, ...textGlow }}>
+          <Icon id="pin" size={13} /> {P.location}
+        </div>
+      )}
+      {!isMinimal && !!P.since && <div style={{ marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: softInk, ...textGlow }}>{P.since}</div>}
 
       {/* counters: minimal = subtle inline line (guns.lol "👁 519"); else strip.
           the ♡ is a real tappable reaction that counts. */}
       {isMinimal ? (
         <div style={{ display: "flex", gap: "16px", marginTop: "13px", fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow, alignItems: "center" }}>
-          <span>👁 {Number(views).toLocaleString()}</span>
-          <span>✉ {Number(P.counters.knocks).toLocaleString()}</span>
-          <button onClick={onReact} title="leave a heart" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "inherit", color: reacted ? "#ff5d8f" : "inherit", display: "inline-flex", alignItems: "center", gap: "4px", transition: "transform .15s ease, color .15s ease", transform: reacted ? "scale(1.1)" : "scale(1)" }}>
-            {reacted ? "♥" : "♡"} {Number(reactions).toLocaleString()}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}><Icon id="eye" size={13} /> {Number(views).toLocaleString()}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}><Icon id="knock" size={13} /> {Number(P.counters.knocks).toLocaleString()}</span>
+          <button onClick={onReact} title="leave a heart" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "inherit", color: reacted ? "#ff5d8f" : "inherit", display: "inline-flex", alignItems: "center", gap: "5px", transition: "transform .15s ease, color .15s ease", transform: reacted ? "scale(1.1)" : "scale(1)" }}>
+            <Icon id="heart" size={13} /> {Number(reactions).toLocaleString()}
           </button>
         </div>
       ) : (
@@ -343,10 +415,10 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
       )}
 
       <button
-        style={{ width: "100%", marginTop: "16px", padding: "13px", border: isMinimal ? "1px solid color-mix(in srgb, var(--ink) 25%, transparent)" : "none", borderRadius: "var(--radius)", background: isMinimal ? "color-mix(in srgb, var(--panel) 30%, transparent)" : "var(--accent)", color: isMinimal ? "var(--ink)" : "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "15px", cursor: "pointer", boxShadow: isMinimal ? "none" : "var(--btn-shadow)", backdropFilter: isMinimal ? "blur(4px)" : undefined }}
+        style={{ width: "100%", marginTop: "16px", padding: "13px", border: isMinimal ? "1px solid color-mix(in srgb, var(--ink) 25%, transparent)" : "none", borderRadius: "var(--radius)", background: isMinimal ? "color-mix(in srgb, var(--panel) 30%, transparent)" : "var(--accent)", color: isMinimal ? "var(--ink)" : "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "15px", cursor: "pointer", boxShadow: isMinimal ? "none" : "var(--btn-shadow)", backdropFilter: isMinimal ? "blur(4px)" : undefined, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
         onClick={onKnock}
       >
-        ✉ knock &amp; chat with me
+        <Icon id="knock" size={17} /> knock &amp; chat with me
       </button>
     </div>
   );
