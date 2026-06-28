@@ -235,11 +235,15 @@ function AccountPanel({ api }: { api: DesktopApi }) {
 function BadgePicker({ api }: { api: DesktopApi }) {
   const owned = api.state.profile.badges || [];
   const colors = api.state.profile.badgeColors || {};
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => { getSession().then((s) => setIsAdmin(!!s?.isAdmin)); }, []);
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
       {BADGES.map((b) => {
         const on = owned.includes(b.id);
-        const locked = b.admin && !on; // admin badges can't be self-added
+        // admin-only badges are locked for normal users, but an admin (e.g. 777)
+        // CAN equip them on their own profile.
+        const locked = b.admin && !on && !isAdmin;
         const color = colors[b.id] || b.color;
         return (
           <div key={b.id} style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>

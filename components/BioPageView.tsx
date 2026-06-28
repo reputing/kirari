@@ -113,9 +113,9 @@ export default function BioPageView({
         style={{
           position: "relative",
           zIndex: 3,
-          maxWidth: embedded ? "100%" : "520px",
+          maxWidth: embedded ? "100%" : (P.pageLayout === "minimal" || P.cardless ? "440px" : "520px"),
           margin: "0 auto",
-          padding: embedded ? "20px 14px 30px" : "min(9vh, 70px) 20px 60px",
+          padding: embedded ? "20px 14px 30px" : "min(11vh, 90px) 22px 60px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -228,19 +228,32 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
     ? { border: "2px solid transparent", backgroundImage: "linear-gradient(var(--panel),var(--panel)), conic-gradient(from 0deg, var(--accent), color-mix(in srgb, var(--accent) 30%, #fff), var(--accent))", backgroundOrigin: "border-box", backgroundClip: "padding-box, border-box" }
     : {};
 
+  // ---- layout presets ----
+  // classic = the original card. minimal = guns.lol-style: no card, content
+  // floats centered on the image. hero = bigger avatar, looser. compact = tight.
+  const layout = P.pageLayout || (P.cardless ? "minimal" : "classic");
+  const isMinimal = layout === "minimal";
+  const isHero = layout === "hero";
+  const isCompact = layout === "compact";
+
+  // when minimal/hero, the card surface disappears and content sits on the bg
+  const containerSurface: CSSProperties = isMinimal || isHero
+    ? { background: "transparent", border: "none", boxShadow: "none", backdropFilter: "none" }
+    : { ...surface(P, { borderRadius: "var(--radius)" }), ...neon, ...animBorder };
+
+  const containerPad = isMinimal ? "0" : isHero ? "10px 0 0" : isCompact ? "18px 16px" : (P.cardless ? "0 0 8px" : "26px 22px");
+
   return (
     <div
       ref={cardRef}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
       style={{
-        ...surface(P, { borderRadius: "var(--radius)" }),
-        ...neon,
-        ...animBorder,
+        ...containerSurface,
         ...reveal(3),
         ...idleAnim,
         width: "100%",
-        padding: P.cardless ? "0 0 8px" : "26px 22px",
+        padding: containerPad,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -255,8 +268,8 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
         style={{
           ...reveal(2),
           position: "relative",
-          width: "104px",
-          height: "104px",
+          width: isHero ? "128px" : isMinimal ? "92px" : isCompact ? "84px" : "104px",
+          height: isHero ? "128px" : isMinimal ? "92px" : isCompact ? "84px" : "104px",
           borderRadius: P.pfpShape === "circle" ? "50%" : "26px",
           border: "3px solid " + P.pfpColor,
           background: P.pfpUrl
@@ -271,7 +284,7 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
         )}
       </div>
 
-      <h1 style={{ margin: 0, ...nameStyleFor(P.textFx, 30), ...textGlow, ...(P.outlineText ? { WebkitTextStroke: "1.5px rgba(0,0,0,.55)", paintOrder: "stroke fill" } as CSSProperties : {}) }}>{P.name}</h1>
+      <h1 style={{ margin: 0, ...nameStyleFor(P.textFx, isHero ? 36 : 30), ...textGlow, ...((P.outlineText || isMinimal) ? { WebkitTextStroke: "1.5px rgba(0,0,0,.6)", paintOrder: "stroke fill" } as CSSProperties : {}) }}>{P.name}</h1>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", flexWrap: "wrap", justifyContent: "center" }}>
         <span style={{ fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow }}>@{P.handle}</span>
       </div>
@@ -292,26 +305,34 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
         </div>
       )}
 
-      <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", marginTop: "12px", padding: "7px 14px", borderRadius: "999px", ...surface(P, { background: P.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: "none" }) }}>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", marginTop: isMinimal ? "10px" : "12px", padding: "6px 13px", borderRadius: "999px", ...surface(P, { background: P.cardless || isMinimal ? "color-mix(in srgb, var(--panel) 55%, transparent)" : "var(--panel-2)", boxShadow: "none" }), backdropFilter: isMinimal ? "blur(6px)" : undefined }}>
         <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#5ed29a", boxShadow: "0 0 6px #5ed29a", animation: "statusblink 2.4s ease-in-out infinite" }} />
         <span style={{ fontSize: "13px", fontWeight: 700 }}>{mood || "♡ sleepy + online"}</span>
       </div>
 
-      {P.bio && <p style={{ margin: "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "400px", ...textGlow }}>{P.bio}</p>}
-      <div style={{ marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: softInk, ...textGlow }}>{P.since}</div>
+      {P.bio && <p style={{ margin: isMinimal ? "11px 0 0" : "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "360px", ...textGlow }}>{P.bio}</p>}
+      {!isMinimal && <div style={{ marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: softInk, ...textGlow }}>{P.since}</div>}
 
-      {/* counters — one connected strip with dividers (less "3 flat boxes") */}
-      <div style={{ display: "flex", marginTop: "16px", borderRadius: "16px", overflow: "hidden", ...surface(P, { background: P.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: "none" }) }}>
-        {([["views", views], ["knocks", P.counters.knocks], ["friends", P.counters.friends]] as [string, number][]).map(([label, n], i) => (
-          <div key={label} style={{ padding: "9px 18px", textAlign: "center", borderLeft: i ? "1px solid var(--line)" : "none", flex: 1 }}>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: "17px", color: "var(--accent)" }}>{Number(n).toLocaleString()}</div>
-            <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", letterSpacing: "0.5px" }}>{label.toUpperCase()}</div>
-          </div>
-        ))}
-      </div>
+      {/* counters: minimal = subtle inline line (guns.lol "👁 519"); else strip */}
+      {isMinimal ? (
+        <div style={{ display: "flex", gap: "16px", marginTop: "13px", fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow }}>
+          <span>👁 {Number(views).toLocaleString()}</span>
+          <span>✉ {Number(P.counters.knocks).toLocaleString()}</span>
+          <span>♡ {Number(P.counters.friends).toLocaleString()}</span>
+        </div>
+      ) : (
+        <div style={{ display: "flex", marginTop: "16px", borderRadius: "16px", overflow: "hidden", ...surface(P, { background: P.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: "none" }) }}>
+          {([["views", views], ["knocks", P.counters.knocks], ["friends", P.counters.friends]] as [string, number][]).map(([label, n], i) => (
+            <div key={label} style={{ padding: "9px 18px", textAlign: "center", borderLeft: i ? "1px solid var(--line)" : "none", flex: 1 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: "17px", color: "var(--accent)" }}>{Number(n).toLocaleString()}</div>
+              <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", letterSpacing: "0.5px" }}>{label.toUpperCase()}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <button
-        style={{ width: "100%", marginTop: "16px", padding: "13px", border: "none", borderRadius: "var(--radius)", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "15px", cursor: "pointer", boxShadow: "var(--btn-shadow)" }}
+        style={{ width: "100%", marginTop: "16px", padding: "13px", border: isMinimal ? "1px solid color-mix(in srgb, var(--ink) 25%, transparent)" : "none", borderRadius: "var(--radius)", background: isMinimal ? "color-mix(in srgb, var(--panel) 30%, transparent)" : "var(--accent)", color: isMinimal ? "var(--ink)" : "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "15px", cursor: "pointer", boxShadow: isMinimal ? "none" : "var(--btn-shadow)", backdropFilter: isMinimal ? "blur(4px)" : undefined }}
         onClick={onKnock}
       >
         ✉ knock &amp; chat with me
@@ -389,18 +410,20 @@ function Links({ profile, onSign }: { profile: Profile; onSign?: () => void }) {
 }
 
 function Guestbook({ entries, profile, onSign }: { entries: GuestEntry[]; profile: Profile; onSign?: () => void }) {
+  const minimal = (profile.pageLayout || (profile.cardless ? "minimal" : "classic")) === "minimal";
+  const entryBg = minimal ? "color-mix(in srgb, var(--panel) 35%, transparent)" : (profile.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)");
   return (
-    <div style={{ width: "100%", marginTop: "30px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-        <span style={{ fontFamily: "var(--font-pixel)", fontSize: "11px", letterSpacing: "1.5px", color: "var(--ink-soft)" }}>★ GUESTBOOK · {entries.length} SOULS</span>
-        <span style={{ flex: 1, height: "2px", background: "var(--line)", borderRadius: "2px" }} />
+    <div style={{ width: "100%", marginTop: minimal ? "22px" : "30px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+        <span style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", letterSpacing: "1.5px", color: "var(--ink-soft)" }}>★ GUESTBOOK · {entries.length} SOULS</span>
+        <span style={{ flex: 1, height: "1px", background: "var(--line)", opacity: 0.6 }} />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         {entries.map((g) => (
-          <div key={g.id} style={{ ...surface(profile, { background: profile.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: profile.translucent ? undefined : "0 6px 16px -10px rgba(0,0,0,.4)" }), borderRadius: "16px", padding: "12px 14px", borderLeft: "3px solid " + g.color }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "5px" }}>
-              <span style={{ width: "26px", height: "26px", borderRadius: "50%", background: g.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontFamily: "var(--font-display)", flex: "0 0 auto" }}>{initOf(g.name)}</span>
-              <span style={{ ...nameStyleFor(g.fx, 15), color: g.color }}>{g.name}</span>
+          <div key={g.id} style={{ background: entryBg, backdropFilter: minimal ? "blur(8px)" : undefined, border: minimal ? "1px solid color-mix(in srgb, var(--ink) 10%, transparent)" : "var(--border)", borderRadius: "14px", padding: "11px 14px", borderLeft: "2px solid " + g.color }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "4px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: g.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontFamily: "var(--font-display)", flex: "0 0 auto" }}>{initOf(g.name)}</span>
+              <span style={{ ...nameStyleFor(g.fx, 14), color: g.color }}>{g.name}</span>
               <span style={{ flex: 1 }} />
               <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "var(--ink-soft)" }}>{g.time}</span>
             </div>
@@ -408,7 +431,7 @@ function Guestbook({ entries, profile, onSign }: { entries: GuestEntry[]; profil
           </div>
         ))}
       </div>
-      <button onClick={onSign} style={{ width: "100%", marginTop: "12px", padding: "12px", border: "var(--border)", borderRadius: "var(--radius)", background: "color-mix(in srgb, var(--panel) 78%, transparent)", color: "var(--ink)", fontFamily: "var(--font-display)", fontSize: "13px", cursor: "pointer" }}>
+      <button onClick={onSign} style={{ width: "100%", marginTop: "10px", padding: "12px", border: "1px solid color-mix(in srgb, var(--ink) 18%, transparent)", borderRadius: "var(--radius)", background: minimal ? "color-mix(in srgb, var(--panel) 25%, transparent)" : "color-mix(in srgb, var(--panel) 78%, transparent)", backdropFilter: minimal ? "blur(6px)" : undefined, color: "var(--ink)", fontFamily: "var(--font-display)", fontSize: "13px", cursor: "pointer" }}>
         ✎ sign the guestbook
       </button>
     </div>
@@ -431,15 +454,20 @@ function gradeCss(grade?: string): string {
 function EffectsOverlay({ profile, embedded, show }: { profile: Profile; embedded: boolean; show: boolean }) {
   const P = profile;
   const pos: CSSProperties = { position: embedded ? "absolute" : "fixed", inset: 0, pointerEvents: "none" };
-  const density = Math.max(0, Math.min(100, P.ambienceDensity ?? 45));
-  const count = P.ambience && P.ambience !== "none" ? Math.round(8 + (density / 100) * 36) : 0;
+  const density = Math.max(0, Math.min(100, P.ambienceDensity ?? 40));
+  const count = P.ambience && P.ambience !== "none" ? Math.round(6 + (density / 100) * 30) : 0;
   const glyph = P.ambience === "petals" ? "❀" : P.ambience === "snow" ? "❄" : P.ambience === "embers" ? "•" : P.ambience === "orbs" ? "●" : P.ambience === "rain" ? "|" : "";
   const color = P.ambience === "embers" ? "#ff9a4d" : P.ambience === "snow" ? "#fff" : P.ambience === "orbs" ? "var(--accent)" : P.ambience === "rain" ? "rgba(180,200,255,.6)" : "var(--deco, #ffb8da)";
+  // default: behind the content so it never crosses the face/name. Opacity
+  // defaults lower so it reads as atmosphere, not a snowstorm on top of you.
+  const layerBehind = (P.ambienceLayer || "behind") === "behind";
+  const ambZ = layerBehind ? 1 : 6; // 1 = above bg, below content(3); 6 = above content
+  const ambOpacity = (P.ambienceOpacity ?? 55) / 100;
 
   return (
     <>
       {count > 0 && (
-        <div style={{ ...pos, zIndex: 1, opacity: show ? 1 : 0, transition: "opacity 1s ease", overflow: "hidden" }}>
+        <div style={{ ...pos, zIndex: ambZ, opacity: show ? ambOpacity : 0, transition: "opacity 1s ease", overflow: "hidden" }}>
           {Array.from({ length: count }).map((_, i) => {
             const left = (i * 47 + 13) % 100;
             const dur = 6 + ((i * 7) % 9);

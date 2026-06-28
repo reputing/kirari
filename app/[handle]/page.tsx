@@ -84,11 +84,35 @@ export default function PublicPage() {
   }, [handle]);
 
   function enter() {
-    // starting audio from inside the click guarantees it plays (no autoplay block)
+    // Everything that needs a user gesture must happen synchronously inside
+    // this click: load the file, start playback, build the Web Audio graph, and
+    // resume the context. Browsers start contexts SUSPENDED and only a
+    // gesture-initiated resume produces sound. Building the graph here (not
+    // lazily in the visualizer) means the reroute can never cut audio.
     const a = audioRef.current;
     if (a && page?.profile.audioUrl) {
       a.volume = 0.6;
-      a.play().catch(() => {});
+      a.muted = false;
+      const p = a.play();
+      if (p && typeof p.then === "function") {
+        p.catch(() => { setTimeout(() => { a.play().catch(() => {}); }, 60); });
+      }
+      // build/resume the audio graph now, inside the gesture
+      try {
+        const holder = a as unknown as { _kirariAudio?: { ctx: AudioContext; analyser: AnalyserNode } };
+        if (!holder._kirariAudio) {
+          const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          const ctx = new AC();
+          const src = ctx.createMediaElementSource(a);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 64;
+          src.connect(analyser);
+          analyser.connect(ctx.destination);
+          holder._kirariAudio = { ctx, analyser };
+        }
+        const ctx = holder._kirariAudio.ctx;
+        if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      } catch { /* cross-origin or unsupported — plain playback still works */ }
     }
     setEntered(true);
   }
@@ -104,7 +128,7 @@ export default function PublicPage() {
   return (
     <div style={themeVars}>
       {/* audio element exists before enter so the click can start it */}
-      {page.profile.audioUrl && <audio ref={audioRef} src={page.profile.audioUrl} loop />}
+      {page.profile.audioUrl && <audio ref={audioRef} src={page.profile.audioUrl} crossOrigin="anonymous" loop preload="auto" />}
 
       {!entered && <BootSplash handle={handle} ready onEnter={enter} profile={page.profile} />}
 
@@ -297,7 +321,17 @@ function AudioToggle({ audioRef, profile }: { audioRef: React.RefObject<HTMLAudi
   if (!profile.audioUrl) return null;
   return (
     <button
-      onClick={() => { const a = audioRef.current; if (!a) return; if (a.paused) a.play().catch(() => {}); else a.pause(); }}
+      onClick={() => {
+        const a = audioRef.current;
+        if (!a) return;
+        if (a.paused) {
+          const ctx = (a as unknown as { _kirariAudio?: { ctx: AudioContext } })._kirariAudio?.ctx;
+          if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+          a.play().catch(() => {});
+        } else {
+          a.pause();
+        }
+      }}
       title={playing ? "pause" : "play"}
       style={{ position: "fixed", top: "16px", left: "16px", zIndex: 20, display: "flex", alignItems: "center", gap: "9px", padding: "8px 14px 8px 10px", background: "var(--panel)", border: "var(--border)", borderRadius: "999px", cursor: "pointer", color: "var(--ink)", boxShadow: "var(--shadow)", maxWidth: "210px" }}
     >

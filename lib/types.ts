@@ -60,6 +60,8 @@ export interface Profile {
   tilt?: boolean; // subtle 3D tilt-on-hover for the card
   cardAnim?: "none" | "float" | "pulse"; // idle card animation
   shadowStrength?: number; // 0..100 card drop-shadow intensity (default 50)
+  // ---- layout preset (overall page composition) ----
+  pageLayout?: "classic" | "minimal" | "hero" | "compact"; // classic = card; minimal = guns.lol-style floating
   badges?: string[]; // badge ids shown on the card (self-pick + admin-granted)
   badgeColors?: Record<string, string>; // per-badge color override (id -> hex)
 
@@ -74,6 +76,8 @@ export interface Profile {
   // ---- ambience / grade ----
   ambience?: "none" | "petals" | "rain" | "snow" | "embers" | "orbs"; // overlay
   ambienceDensity?: number; // 0-100
+  ambienceLayer?: "behind" | "front"; // behind content (subtle) or in front (over everything)
+  ambienceOpacity?: number; // 0-100 overall opacity of the ambience
   vignette?: number; // 0-100 edge darkening
   grain?: number; // 0-100 film grain
   grade?: "none" | "noir" | "sepia" | "vhs" | "bloom" | "dream"; // color filter

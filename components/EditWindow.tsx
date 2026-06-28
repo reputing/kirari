@@ -158,6 +158,15 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
       </div>
 
       {/* page theme — independent of dashboard skin */}
+      <SectionLabel>✦ LAYOUT</SectionLabel>
+      <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "8px" }}>how your page is composed. minimal floats content on your image (guns.lol style).</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+        {(["classic", "minimal", "hero", "compact"] as const).map((l) => (
+          <button key={l} onClick={() => api.setProfileVal("pageLayout", l)} style={pageThemeBtn((P.pageLayout || "classic") === l)}>{l}</button>
+        ))}
+      </div>
+
+      {/* page theme — independent of dashboard skin */}
       <SectionLabel>✦ PAGE THEME (public only)</SectionLabel>
       <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "8px" }}>this skins your biolink only — your dashboard stays however you like it.</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
@@ -187,7 +196,18 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
         ))}
       </div>
       {P.ambience && P.ambience !== "none" && (
-        <Slider label="ambience density" value={P.ambienceDensity ?? 45} min={0} max={100} onChange={(v) => api.setProfileVal("ambienceDensity", v)} />
+        <>
+          <Slider label="ambience density" value={P.ambienceDensity ?? 40} min={0} max={100} onChange={(v) => api.setProfileVal("ambienceDensity", v)} />
+          <Slider label="ambience opacity" value={P.ambienceOpacity ?? 55} min={0} max={100} onChange={(v) => api.setProfileVal("ambienceOpacity", v)} />
+          <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "2px 0 6px" }}>AMBIENCE LAYER</div>
+          <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
+            {(["behind", "front"] as const).map((l) => (
+              <button key={l} onClick={() => api.setProfileVal("ambienceLayer", l)} style={pageThemeBtn((P.ambienceLayer || "behind") === l)}>
+                {l === "behind" ? "behind content" : "in front (over all)"}
+              </button>
+            ))}
+          </div>
+        </>
       )}
       <Slider label="vignette" value={P.vignette ?? 0} min={0} max={100} onChange={(v) => api.setProfileVal("vignette", v)} />
       <Slider label="film grain" value={P.grain ?? 0} min={0} max={100} onChange={(v) => api.setProfileVal("grain", v)} />
