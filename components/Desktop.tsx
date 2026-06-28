@@ -110,7 +110,7 @@ export default function Desktop() {
     { id: "guestbook", icon: "★", label: "guest", open: () => api.openWindow("guestbook") },
     { id: "notifs", icon: "♡", label: "alerts", badge: notifUnread || 0, open: () => api.openWindow("notifs") },
     { id: "requests", icon: "♥", label: "friends", badge: reqIncoming || 0, open: () => api.openWindow("requests") },
-    { id: "newgroup", icon: "＋", label: "group", open: () => api.openWindow("newgroup") },
+    { id: "newgroup", icon: "⚇", label: "groups", open: () => api.openWindow("dms") },
     { id: "edit", icon: "✎", label: "edit", open: () => api.openWindow("edit") },
     { id: "settings", icon: "⚙", label: "skins", open: () => api.openWindow("settings") },
   ];

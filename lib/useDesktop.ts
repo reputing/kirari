@@ -198,6 +198,21 @@ export function useDesktop(): DesktopApi {
       } catch {
         /* ignore hydration errors — fall back to current state */
       } finally {
+        // restore private desktop prefs (window layout + dashboard wallpaper)
+        try {
+          const h = stateRef.current.profile.handle;
+          const raw = localStorage.getItem("kirari:desktop:" + h);
+          if (raw) {
+            const prefs = JSON.parse(raw) as { windows?: typeof stateRef.current.windows; dashBgType?: string; dashBgUrl?: string; dashBgColor?: string };
+            setState((s) => ({
+              ...s,
+              windows: prefs.windows && prefs.windows.length ? prefs.windows : s.windows,
+              dashBgType: (prefs.dashBgType as typeof s.dashBgType) ?? s.dashBgType,
+              dashBgUrl: prefs.dashBgUrl ?? s.dashBgUrl,
+              dashBgColor: prefs.dashBgColor ?? s.dashBgColor,
+            }));
+          }
+        } catch { /* */ }
         hydratedRef.current = true;
       }
     })();
@@ -268,6 +283,22 @@ export function useDesktop(): DesktopApi {
   // localStorage) whenever anything visible on the public page changes. This is
   // what makes /<handle> show the owner's real, saved edits. Debounced so rapid
   // edits don't thrash storage.
+  // persist private desktop prefs (window layout + dashboard wallpaper) locally,
+  // keyed by handle. Per-device dashboard prefs, not the public page blob.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const h = state.profile.handle;
+    if (!h) return;
+    try {
+      localStorage.setItem("kirari:desktop:" + h, JSON.stringify({
+        windows: state.windows,
+        dashBgType: state.dashBgType,
+        dashBgUrl: state.dashBgUrl,
+        dashBgColor: state.dashBgColor,
+      }));
+    } catch { /* */ }
+  }, [state.windows, state.dashBgType, state.dashBgUrl, state.dashBgColor, state.profile.handle]);
+
   useEffect(() => {
     const handle = state.profile.handle;
     if (!handle || !hydratedRef.current) return;
@@ -398,11 +429,18 @@ export function useDesktop(): DesktopApi {
         if (dragRef.current.up) window.removeEventListener("mouseup", dragRef.current.up);
         document.body.style.userSelect = "";
         const p = dragRef.current.pos;
-        if (p)
+        if (p) {
+          // snap to an even 20px grid so windows align no matter where dropped
+          const GRID = 20;
+          const sx = Math.round(p.nx / GRID) * GRID;
+          const sy = Math.round(p.ny / GRID) * GRID;
+          frame.style.left = sx + "px";
+          frame.style.top = sy + "px";
           setState((st) => ({
             ...st,
-            windows: st.windows.map((w) => (w.id === id ? { ...w, x: p.nx, y: p.ny } : w)),
+            windows: st.windows.map((w) => (w.id === id ? { ...w, x: sx, y: sy } : w)),
           }));
+        }
         dragRef.current = {};
       };
       dragRef.current = { move, up, pos: null };

@@ -139,6 +139,85 @@ export async function sendMessage(threadId: string, sender: string, body: string
   return msg;
 }
 
+// ---- group chats ----------------------------------------------------------
+export interface GroupThread { id: string; name: string; updatedAt: number; }
+
+// Create a group with the given name + member handles (creator auto-added).
+export async function createGroup(creator: string, name: string, memberHandles: string[]): Promise<{ ok: boolean; groupId?: string; error?: string }> {
+  const me = norm(creator);
+  const nm = name.trim() || "untitled group";
+  if (!me) return { ok: false, error: "sign in first" };
+  const members = Array.from(new Set([me, ...memberHandles.map(norm).filter(Boolean)]));
+
+  if (supabaseConfigured && supabase) {
+    const { data: auth } = await supabase.auth.getUser();
+    const myUid = auth.user?.id ?? null;
+    const { data: g, error } = await supabase.from("group_threads").insert({ name: nm, owner_uid: myUid }).select("id").single();
+    if (error) return { ok: false, error: error.message };
+    const gid = g.id as string;
+    const rows = await Promise.all(members.map(async (h) => ({ group_id: gid, handle: h, uid: h === me ? myUid : await resolveHandleUid(h) })));
+    const { error: mErr } = await supabase.from("group_members").insert(rows);
+    if (mErr) return { ok: false, error: mErr.message };
+    return { ok: true, groupId: gid };
+  }
+
+  const groups = lsGet<Record<string, { id: string; name: string; members: string[]; updatedAt: number }>>("kirari:groups", {});
+  const gid = "g" + Date.now();
+  groups[gid] = { id: gid, name: nm, members, updatedAt: Date.now() };
+  lsSet("kirari:groups", groups);
+  return { ok: true, groupId: gid };
+}
+
+export async function listGroups(me: string): Promise<GroupThread[]> {
+  const h = norm(me);
+  if (!h) return [];
+  if (supabaseConfigured && supabase) {
+    const { data: mem } = await supabase.from("group_members").select("group_id").eq("handle", h);
+    const ids = (mem || []).map((m) => m.group_id);
+    if (!ids.length) return [];
+    const { data } = await supabase.from("group_threads").select("*").in("id", ids).order("updated_at", { ascending: false });
+    return (data || []).map((g) => ({ id: g.id, name: g.name, updatedAt: new Date(g.updated_at).getTime() }));
+  }
+  const groups = lsGet<Record<string, { id: string; name: string; members: string[]; updatedAt: number }>>("kirari:groups", {});
+  return Object.values(groups).filter((g) => g.members.includes(h)).map((g) => ({ id: g.id, name: g.name, updatedAt: g.updatedAt })).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function loadGroupMessages(groupId: string): Promise<DMMessage[]> {
+  if (supabaseConfigured && supabase) {
+    const { data, error } = await supabase.from("group_messages").select("*").eq("group_id", groupId).order("created_at", { ascending: true });
+    if (error) { console.warn("[kirari] loadGroupMessages:", error.message); return []; }
+    return (data || []).map((m) => ({ id: m.id, thread: groupId, sender: m.sender, body: m.body, createdAt: new Date(m.created_at).getTime() }));
+  }
+  const all = lsGet<Record<string, DMMessage[]>>("kirari:groupmsgs", {});
+  return all[groupId] || [];
+}
+
+export async function sendGroupMessage(groupId: string, sender: string, body: string): Promise<DMMessage | null> {
+  const s = norm(sender);
+  const text = body.trim();
+  if (!text) return null;
+  if (supabaseConfigured && supabase) {
+    const { data, error } = await supabase.from("group_messages").insert({ group_id: groupId, sender: s, body: text }).select("*").single();
+    if (error) { console.warn("[kirari] sendGroupMessage:", error.message); return null; }
+    await supabase.from("group_threads").update({ updated_at: new Date().toISOString() }).eq("id", groupId);
+    return { id: data.id, thread: groupId, sender: s, body: text, createdAt: new Date(data.created_at).getTime() };
+  }
+  const all = lsGet<Record<string, DMMessage[]>>("kirari:groupmsgs", {});
+  const msg: DMMessage = { id: "m" + Date.now(), thread: groupId, sender: s, body: text, createdAt: Date.now() };
+  (all[groupId] ||= []).push(msg);
+  lsSet("kirari:groupmsgs", all);
+  return msg;
+}
+
+export async function loadGroupMembers(groupId: string): Promise<string[]> {
+  if (supabaseConfigured && supabase) {
+    const { data } = await supabase.from("group_members").select("handle").eq("group_id", groupId);
+    return (data || []).map((m) => m.handle);
+  }
+  const groups = lsGet<Record<string, { members: string[] }>>("kirari:groups", {});
+  return groups[groupId]?.members || [];
+}
+
 // Mark knock notifications for a thread as read (called when you open it).
 export async function markKnocksRead(me: string, threadId: string): Promise<void> {
   const h = norm(me);

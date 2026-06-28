@@ -364,3 +364,90 @@ set owner = h.uid
 from public.handles h
 where p.handle = h.handle
   and p.owner is null;
+
+-- ============================================================================
+-- Page stats: real view + reaction counts per handle. Views increment on each
+-- visit; reactions (hearts) are tappable by visitors. Public read + increment.
+-- ============================================================================
+create table if not exists public.page_stats (
+  handle    text primary key,
+  views     bigint not null default 0,
+  reactions bigint not null default 0
+);
+alter table public.page_stats enable row level security;
+drop policy if exists "stats read" on public.page_stats;
+create policy "stats read" on public.page_stats for select using (true);
+drop policy if exists "stats upsert" on public.page_stats;
+create policy "stats upsert" on public.page_stats for insert with check (true);
+drop policy if exists "stats update" on public.page_stats;
+create policy "stats update" on public.page_stats for update using (true) with check (true);
+
+-- atomic increment helpers (avoid read-modify-write races)
+create or replace function public.bump_views(h text) returns bigint
+  language sql security definer set search_path = public as $$
+  insert into public.page_stats (handle, views) values (h, 1)
+  on conflict (handle) do update set views = public.page_stats.views + 1
+  returning views;
+$$;
+create or replace function public.bump_reactions(h text, delta int) returns bigint
+  language sql security definer set search_path = public as $$
+  insert into public.page_stats (handle, reactions) values (h, greatest(0, delta))
+  on conflict (handle) do update set reactions = greatest(0, public.page_stats.reactions + delta)
+  returning reactions;
+$$;
+
+-- ============================================================================
+-- Real group chats. A group has many members (by handle+uid) and many messages.
+-- ============================================================================
+create table if not exists public.group_threads (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null,
+  owner_uid  uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create table if not exists public.group_members (
+  group_id uuid not null references public.group_threads(id) on delete cascade,
+  handle   text not null,
+  uid      uuid,
+  joined_at timestamptz not null default now(),
+  primary key (group_id, handle)
+);
+create table if not exists public.group_messages (
+  id         uuid primary key default gen_random_uuid(),
+  group_id   uuid not null references public.group_threads(id) on delete cascade,
+  sender     text not null,
+  body       text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists group_members_handle_idx on public.group_members (handle);
+create index if not exists group_messages_group_idx on public.group_messages (group_id, created_at);
+
+alter table public.group_threads  enable row level security;
+alter table public.group_members  enable row level security;
+alter table public.group_messages enable row level security;
+
+-- A member can see/use a group they belong to (membership checked by uid).
+drop policy if exists "group threads member" on public.group_threads;
+create policy "group threads member" on public.group_threads for all
+  to authenticated
+  using (exists (select 1 from public.group_members m where m.group_id = group_threads.id and m.uid = auth.uid()))
+  with check (true);
+
+-- members table: readable/insertable by authenticated users (so you can add
+-- people when creating a group); a row binds a handle+uid to a group.
+drop policy if exists "group members rw" on public.group_members;
+create policy "group members rw" on public.group_members for all
+  to authenticated using (true) with check (true);
+
+-- messages: only group members can read/post.
+drop policy if exists "group messages member" on public.group_messages;
+create policy "group messages member" on public.group_messages for all
+  to authenticated
+  using (exists (select 1 from public.group_members m where m.group_id = group_messages.group_id and m.uid = auth.uid()))
+  with check (exists (select 1 from public.group_members m where m.group_id = group_messages.group_id and m.uid = auth.uid()));
+
+do $$
+begin
+  begin alter publication supabase_realtime add table public.group_messages; exception when duplicate_object then null; end;
+end $$;

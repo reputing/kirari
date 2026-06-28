@@ -132,21 +132,22 @@ function DesktopIcon({
       onContextMenu={(e) => onIconContext(e, def)}
       title={def.label}
     >
-      {/* bubble */}
+      {/* app-icon squircle */}
       <span
         style={{
           position: "relative",
-          width: "50px",
-          height: "50px",
-          borderRadius: "50%",
+          width: "52px",
+          height: "52px",
+          borderRadius: "15px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: "23px",
+          fontSize: "24px",
           color: "var(--on-accent)",
-          background: "var(--titlebar)",
-          boxShadow: "0 6px 14px -6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.5)",
-          border: "2px solid rgba(255,255,255,.55)",
+          background: "linear-gradient(145deg, color-mix(in srgb, var(--accent) 88%, #fff) 0%, var(--accent) 55%, color-mix(in srgb, var(--accent) 75%, #000) 100%)",
+          boxShadow: "0 8px 18px -8px rgba(0,0,0,.55), inset 0 1.5px 1px rgba(255,255,255,.55), inset 0 -2px 3px rgba(0,0,0,.18)",
+          border: "1px solid rgba(255,255,255,.35)",
+          textShadow: "0 1px 2px rgba(0,0,0,.25)",
         }}
       >
         {def.icon}
@@ -154,20 +155,21 @@ function DesktopIcon({
           <span
             style={{
               position: "absolute",
-              top: "-3px",
-              right: "-3px",
-              background: "var(--accent)",
-              color: "var(--on-accent)",
+              top: "-5px",
+              right: "-5px",
+              background: "#ff3b6b",
+              color: "#fff",
               fontFamily: "var(--font-pixel)",
               fontSize: "8px",
-              minWidth: "16px",
-              height: "16px",
+              minWidth: "17px",
+              height: "17px",
               padding: "0 4px",
               borderRadius: "999px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: "1.5px solid var(--panel)",
+              border: "2px solid var(--bg, #fff)",
+              boxShadow: "0 2px 5px -1px rgba(0,0,0,.4)",
             }}
           >
             {def.badge}

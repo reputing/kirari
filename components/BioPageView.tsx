@@ -32,12 +32,18 @@ export default function BioPageView({
   embedded = false,
   onKnock,
   onSign,
+  stats,
+  reacted,
+  onReact,
 }: {
   data: BioPageData;
   animate?: boolean;
   embedded?: boolean;
   onKnock?: () => void;
   onSign?: () => void;
+  stats?: { views: number; reactions: number };
+  reacted?: boolean;
+  onReact?: () => void;
 }) {
   const P = data.profile;
   // The biolink uses its OWN theme (profile.pageTheme) when set; otherwise it
@@ -48,7 +54,7 @@ export default function BioPageView({
   const themeVars: Record<string, string> = { ...baseVars };
   if (data.fontDisplay) themeVars["--font-display"] = data.fontDisplay;
   if (data.fontBody) themeVars["--font-body"] = data.fontBody;
-  const views = P.counters.views;
+  const views = stats ? stats.views : P.counters.views;
 
   // ---- cinematic entrance: delay → staggered reveal in a chosen style ----
   const delayMs = Math.round((P.entranceDelay ?? 0) * 1000);
@@ -121,7 +127,7 @@ export default function BioPageView({
           alignItems: "center",
         }}
       >
-        <ProfileCard profile={P} mood={data.mood} views={views} reveal={reveal} onKnock={onKnock} />
+        <ProfileCard profile={P} mood={data.mood} views={views} reactions={stats?.reactions ?? 0} reacted={!!reacted} onReact={onReact} reveal={reveal} onKnock={onKnock} />
         <div style={{ ...reveal(4), width: "100%" }}>
           <Links profile={P} onSign={onSign} />
         </div>
@@ -200,7 +206,7 @@ function surface(profile: Profile, extra?: CSSProperties): CSSProperties {
   };
 }
 
-function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profile; mood: string; views: number; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
+function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal, onKnock }: { profile: Profile; mood: string; views: number; reactions: number; reacted: boolean; onReact?: () => void; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
   const P = profile;
   const onMedia = P.pageBgType === "image" || P.pageBgType === "video";
   // On media backgrounds, the card can sit over dark/busy areas — give text a
@@ -305,28 +311,33 @@ function ProfileCard({ profile, mood, views, reveal, onKnock }: { profile: Profi
         </div>
       )}
 
-      <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", marginTop: isMinimal ? "10px" : "12px", padding: "6px 13px", borderRadius: "999px", ...surface(P, { background: P.cardless || isMinimal ? "color-mix(in srgb, var(--panel) 55%, transparent)" : "var(--panel-2)", boxShadow: "none" }), backdropFilter: isMinimal ? "blur(6px)" : undefined }}>
-        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#5ed29a", boxShadow: "0 0 6px #5ed29a", animation: "statusblink 2.4s ease-in-out infinite" }} />
-        <span style={{ fontSize: "13px", fontWeight: 700 }}>{mood || "♡ sleepy + online"}</span>
-      </div>
+      {!!mood && (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", marginTop: isMinimal ? "10px" : "12px", padding: "6px 13px", borderRadius: "999px", ...surface(P, { background: P.cardless || isMinimal ? "color-mix(in srgb, var(--panel) 55%, transparent)" : "var(--panel-2)", boxShadow: "none" }), backdropFilter: isMinimal ? "blur(6px)" : undefined }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#5ed29a", boxShadow: "0 0 6px #5ed29a", animation: "statusblink 2.4s ease-in-out infinite" }} />
+          <span style={{ fontSize: "13px", fontWeight: 700 }}>{mood}</span>
+        </div>
+      )}
 
       {P.bio && <p style={{ margin: isMinimal ? "11px 0 0" : "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "360px", ...textGlow }}>{P.bio}</p>}
       {!isMinimal && <div style={{ marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: softInk, ...textGlow }}>{P.since}</div>}
 
-      {/* counters: minimal = subtle inline line (guns.lol "👁 519"); else strip */}
+      {/* counters: minimal = subtle inline line (guns.lol "👁 519"); else strip.
+          the ♡ is a real tappable reaction that counts. */}
       {isMinimal ? (
-        <div style={{ display: "flex", gap: "16px", marginTop: "13px", fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow }}>
+        <div style={{ display: "flex", gap: "16px", marginTop: "13px", fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow, alignItems: "center" }}>
           <span>👁 {Number(views).toLocaleString()}</span>
           <span>✉ {Number(P.counters.knocks).toLocaleString()}</span>
-          <span>♡ {Number(P.counters.friends).toLocaleString()}</span>
+          <button onClick={onReact} title="leave a heart" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "inherit", color: reacted ? "#ff5d8f" : "inherit", display: "inline-flex", alignItems: "center", gap: "4px", transition: "transform .15s ease, color .15s ease", transform: reacted ? "scale(1.1)" : "scale(1)" }}>
+            {reacted ? "♥" : "♡"} {Number(reactions).toLocaleString()}
+          </button>
         </div>
       ) : (
         <div style={{ display: "flex", marginTop: "16px", borderRadius: "16px", overflow: "hidden", ...surface(P, { background: P.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)", boxShadow: "none" }) }}>
-          {([["views", views], ["knocks", P.counters.knocks], ["friends", P.counters.friends]] as [string, number][]).map(([label, n], i) => (
-            <div key={label} style={{ padding: "9px 18px", textAlign: "center", borderLeft: i ? "1px solid var(--line)" : "none", flex: 1 }}>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: "17px", color: "var(--accent)" }}>{Number(n).toLocaleString()}</div>
+          {([["views", views, false], ["knocks", P.counters.knocks, false], ["hearts", reactions, true]] as [string, number, boolean][]).map(([label, n, isReact], i) => (
+            <button key={label} onClick={isReact ? onReact : undefined} style={{ padding: "9px 18px", textAlign: "center", borderLeft: i ? "1px solid var(--line)" : "none", flex: 1, background: "none", border: "none", borderLeftWidth: i ? "1px" : 0, borderLeftStyle: "solid", borderLeftColor: i ? "var(--line)" : "transparent", cursor: isReact ? "pointer" : "default", fontFamily: "inherit" }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: "17px", color: isReact && reacted ? "#ff5d8f" : "var(--accent)", transition: "transform .15s ease", transform: isReact && reacted ? "scale(1.12)" : "scale(1)" }}>{isReact && reacted ? "♥" : ""}{Number(n).toLocaleString()}</div>
               <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", letterSpacing: "0.5px" }}>{label.toUpperCase()}</div>
-            </div>
+            </button>
           ))}
         </div>
       )}

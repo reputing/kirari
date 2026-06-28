@@ -344,3 +344,50 @@ export async function adminUpdatePage(handle: string, mutate: (p: PublishedPage)
 export function isPersistenceRemote(): boolean {
   return supabaseConfigured;
 }
+
+// ---- page stats: real views + reactions ----------------------------------
+export interface PageStats { views: number; reactions: number; }
+
+// Increment view count for a handle (call once per page visit). Returns counts.
+export async function bumpView(handle: string): Promise<number> {
+  const h = handle.toLowerCase();
+  if (supabaseConfigured && supabase) {
+    const { data, error } = await supabase.rpc("bump_views", { h });
+    if (error) { console.warn("[kirari] bumpView:", error.message); return 0; }
+    return Number(data) || 0;
+  }
+  try {
+    const k = "kirari:views:" + h;
+    const n = Number(localStorage.getItem(k) || 0) + 1;
+    localStorage.setItem(k, String(n));
+    return n;
+  } catch { return 0; }
+}
+
+// Adjust reaction (heart) count by delta (+1 / -1). Returns new total.
+export async function bumpReaction(handle: string, delta: number): Promise<number> {
+  const h = handle.toLowerCase();
+  if (supabaseConfigured && supabase) {
+    const { data, error } = await supabase.rpc("bump_reactions", { h, delta });
+    if (error) { console.warn("[kirari] bumpReaction:", error.message); return 0; }
+    return Number(data) || 0;
+  }
+  try {
+    const k = "kirari:reactions:" + h;
+    const n = Math.max(0, Number(localStorage.getItem(k) || 0) + delta);
+    localStorage.setItem(k, String(n));
+    return n;
+  } catch { return 0; }
+}
+
+// Read current stats without incrementing.
+export async function loadStats(handle: string): Promise<PageStats> {
+  const h = handle.toLowerCase();
+  if (supabaseConfigured && supabase) {
+    const { data } = await supabase.from("page_stats").select("views,reactions").eq("handle", h).maybeSingle();
+    return { views: Number(data?.views) || 0, reactions: Number(data?.reactions) || 0 };
+  }
+  try {
+    return { views: Number(localStorage.getItem("kirari:views:" + h) || 0), reactions: Number(localStorage.getItem("kirari:reactions:" + h) || 0) };
+  } catch { return { views: 0, reactions: 0 }; }
+}

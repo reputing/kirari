@@ -189,13 +189,13 @@ export function makeBlankState(handle: string): AppState {
   const s = makeInitialState();
   return {
     ...s,
-    mood: "♡ just landed",
+    mood: "",
     profile: {
       ...s.profile,
       name: h,
       handle: h,
-      bio: "this is my little corner of the web ♡ say hi!",
-      since: "online since today ✦",
+      bio: "",
+      since: "",
       links: [
         { id: "guest", emoji: "★", label: "sign my guestbook", meta: "", kind: "guest" },
       ],

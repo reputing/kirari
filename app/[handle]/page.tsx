@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useParams } from "next/navigation";
-import { loadPage, addGuestbookEntry, loadGuestbook, type PublishedPage } from "@/lib/store";
+import { loadPage, addGuestbookEntry, loadGuestbook, bumpView, bumpReaction, loadStats, type PublishedPage } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 import { knock } from "@/lib/chat";
 import { resolveThemeVars } from "@/lib/themes";
@@ -24,6 +24,9 @@ export default function PublicPage() {
   const [page, setPage] = useState<PublishedPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [entered, setEntered] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [stats, setStats] = useState<{ views: number; reactions: number }>({ views: 0, reactions: 0 });
+  const [reacted, setReacted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [authPrompt, setAuthPrompt] = useState<null | "knock" | "sign">(null);
   const [session, setSession] = useState<{ handle: string; isAdmin: boolean } | null>(null);
@@ -77,11 +80,25 @@ export default function PublicPage() {
         // merge visitor-signed guestbook entries (separate table) with seeded ones
         const visitor = await loadGuestbook(handle);
         if (visitor.length) setPage({ ...p, guestbook: [...visitor, ...(p.guestbook || [])].slice(0, 200) });
+        // real stats: bump the view once per load, restore prior reaction state
+        const alreadyReacted = (() => { try { return localStorage.getItem("kirari:reacted:" + handle.toLowerCase()) === "1"; } catch { return false; } })();
+        setReacted(alreadyReacted);
+        const views = await bumpView(handle);
+        const cur = await loadStats(handle);
+        setStats({ views: views || cur.views, reactions: cur.reactions });
       }
       setLoading(false);
     })();
     return () => { alive = false; };
   }, [handle]);
+
+  async function toggleReaction() {
+    const next = !reacted;
+    setReacted(next);
+    try { localStorage.setItem("kirari:reacted:" + handle.toLowerCase(), next ? "1" : "0"); } catch { /* */ }
+    const total = await bumpReaction(handle, next ? 1 : -1);
+    setStats((s) => ({ ...s, reactions: total }));
+  }
 
   function enter() {
     // Everything that needs a user gesture must happen synchronously inside
@@ -114,10 +131,16 @@ export default function PublicPage() {
         if (ctx.state === "suspended") ctx.resume().catch(() => {});
       } catch { /* cross-origin or unsupported — plain playback still works */ }
     }
-    setEntered(true);
+    // play the horizontal wipe cutscene, then reveal the page
+    setExiting(true);
+    setTimeout(() => setEntered(true), 750);
   }
 
-  if (loading) return <BootSplash handle={handle} ready={false} onEnter={() => {}} />;
+  if (loading) return (
+    <div style={{ "--bg": "#0e0e12", "--ink": "#e8e8ef", "--ink-soft": "#8a8a99", "--deco": "#6a6a7a", "--accent": "#9a8cff" } as CSSProperties}>
+      <BootSplash handle={handle} ready={false} onEnter={() => {}} />
+    </div>
+  );
   if (!page) return <NotFound handle={handle} />;
 
   const baseVars = resolveThemeVars(page.theme, page.customThemes) as Record<string, string>;
@@ -130,7 +153,16 @@ export default function PublicPage() {
       {/* audio element exists before enter so the click can start it */}
       {page.profile.audioUrl && <audio ref={audioRef} src={page.profile.audioUrl} crossOrigin="anonymous" loop preload="auto" />}
 
-      {!entered && <BootSplash handle={handle} ready onEnter={enter} profile={page.profile} />}
+      {!entered && <BootSplash handle={handle} ready onEnter={enter} profile={page.profile} exiting={exiting} />}
+
+      {/* horizontal cutscene wipe — vertical bars sweep across on enter */}
+      {exiting && !entered && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", pointerEvents: "none" }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ flex: 1, background: "var(--accent, #9a8cff)", transform: "scaleX(1)", transformOrigin: i % 2 === 0 ? "left" : "right", animation: `wipeOut .6s cubic-bezier(.7,0,.3,1) ${i * 0.06}s forwards` }} />
+          ))}
+        </div>
+      )}
 
       {entered && (
         <>
@@ -138,6 +170,9 @@ export default function PublicPage() {
           <BioPageView
             data={{ theme: page.theme, customThemes: page.customThemes, mood: page.mood, profile: page.profile, guestbook: page.guestbook, fontDisplay: page.fontDisplay, fontBody: page.fontBody }}
             animate
+            stats={stats}
+            reacted={reacted}
+            onReact={toggleReaction}
             onKnock={() => gated("knock")}
             onSign={() => gated("sign")}
           />
@@ -236,11 +271,11 @@ function NotFound({ handle }: { handle: string }) {
   );
 }
 
-function BootSplash({ handle, ready, onEnter, profile }: { handle: string; ready: boolean; onEnter: () => void; profile?: Profile }) {
+function BootSplash({ handle, ready, onEnter, profile, exiting }: { handle: string; ready: boolean; onEnter: () => void; profile?: Profile; exiting?: boolean }) {
   const hasBgMedia = profile && (profile.pageBgType === "image" || profile.pageBgType === "video") && profile.pageBgUrl;
   return (
     <div
-      onClick={ready ? onEnter : undefined}
+      onClick={ready && !exiting ? onEnter : undefined}
       style={{
         position: "fixed",
         inset: 0,
@@ -250,8 +285,10 @@ function BootSplash({ handle, ready, onEnter, profile }: { handle: string; ready
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "var(--bg, linear-gradient(165deg,#ffe6f3,#f3ecff,#e7f7ff))",
+        background: "var(--bg, #0e0e12)",
         overflow: "hidden",
+        transition: "background .3s ease",
+        animation: exiting ? "splashFade .4s ease forwards" : undefined,
       }}
     >
       {/* blurred preview of the page's own background behind the splash */}
