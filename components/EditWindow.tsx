@@ -26,6 +26,7 @@ const FXS: [TextFx, string][] = [
   ["neon", "neon"],
   ["chrome", "chrome"],
   ["flame", "flame"],
+  ["typing", "typing"],
   ["sticker", "sticker"],
   ["retro3d", "retro 3d"],
 ];
@@ -163,7 +164,7 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
 
       {/* page theme — independent of dashboard skin */}
       <SectionLabel>✦ LAYOUT</SectionLabel>
-      <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "8px" }}>how your page is composed. minimal floats content on your image (guns.lol style).</div>
+      <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "8px" }}>how your page is composed. minimal = a centered frosted card over your wallpaper (guns.lol style).</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
         {(["classic", "minimal", "hero", "compact"] as const).map((l) => (
           <button key={l} onClick={() => api.setProfileVal("pageLayout", l)} style={pageThemeBtn((P.pageLayout || "classic") === l)}>{l}</button>
@@ -228,6 +229,7 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
         <MiniToggle label="neon glow" on={!!P.neonGlow} onClick={() => api.setProfileVal("neonGlow", !P.neonGlow)} />
         <MiniToggle label="gradient border" on={!!P.animatedBorder} onClick={() => api.setProfileVal("animatedBorder", !P.animatedBorder)} />
         <MiniToggle label="outline name" on={!!P.outlineText} onClick={() => api.setProfileVal("outlineText", !P.outlineText)} />
+        <MiniToggle label="UID on hover" on={P.showUid !== false} onClick={() => api.setProfileVal("showUid", P.showUid === false)} />
       </div>
 
       {/* avatar + audio uploads */}
@@ -421,6 +423,10 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
             rows={3}
             style={inputStyle}
           />
+        </label>
+        <label style={{ display: "block" }}>
+          <FieldLabel>LOCATION (OPTIONAL)</FieldLabel>
+          <input value={P.location || ""} onChange={(e) => api.setProfileVal("location", e.target.value)} placeholder="e.g. somewhere quiet" style={inputStyle} />
         </label>
       </div>
 
