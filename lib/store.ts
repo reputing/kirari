@@ -12,6 +12,7 @@
 // ============================================================================
 
 import { supabase, supabaseConfigured } from "./supabase/client";
+import { migrateChatsLocal } from "./chat";
 import type { Profile, CustomTheme, GuestEntry } from "./types";
 
 // What a published page needs to render. Mirrors the columns in schema.sql.
@@ -244,6 +245,13 @@ export async function renameHandle(oldHandle: string, newHandle: string): Promis
     }
     const gb = localStorage.getItem("kirari:gb:" + from);
     if (gb) { localStorage.setItem("kirari:gb:" + to, gb); localStorage.removeItem("kirari:gb:" + from); }
+    // move all chats (DMs, groups, knocks) so a rename never loses them
+    migrateChatsLocal(from, to);
+    // carry presence + per-device desktop prefs over to the new handle
+    const seen = localStorage.getItem("kirari:seen:" + from);
+    if (seen) { localStorage.setItem("kirari:seen:" + to, seen); localStorage.removeItem("kirari:seen:" + from); }
+    const desk = localStorage.getItem("kirari:desktop:" + from);
+    if (desk) { localStorage.setItem("kirari:desktop:" + to, desk); localStorage.removeItem("kirari:desktop:" + from); }
     localStorage.setItem("kirari:lastHandle", to);
   } catch { /* */ }
   return { ok: true };

@@ -9,6 +9,8 @@ import {
   type DMThread, type DMMessage, type GroupThread,
 } from "@/lib/chat";
 import { initOf } from "@/lib/styleHelpers";
+import { EMOJIS } from "@/lib/seed";
+import { uploadAsset, relTime } from "@/lib/store";
 
 // Unified chats: 1:1 DMs + real group chats. Left rail lists both (groups
 // marked with ⚇); right pane is the active conversation. Polls for new msgs.
@@ -27,6 +29,8 @@ export default function DMsWindow(_props: { api: DesktopApi }) {
   const [creating, setCreating] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupMembers, setGroupMembers] = useState("");
+  const [showEmoji, setShowEmoji] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => { getSession().then((s) => setMe(s?.handle || "")); }, []);
@@ -63,9 +67,20 @@ export default function DMsWindow(_props: { api: DesktopApi }) {
   async function send() {
     if (!active || !text.trim()) return;
     const body = text.trim();
-    setText("");
+    setText(""); setShowEmoji(false);
     const m = active.kind === "dm" ? await sendMessage(active.thread.id, me, body) : await sendGroupMessage(active.group.id, me, body);
     if (m) setMsgs((prev) => [...prev, m]);
+  }
+
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f || !active) return;
+    try {
+      const { url } = await uploadAsset(f, "bg", me);
+      const m = active.kind === "dm" ? await sendMessage(active.thread.id, me, url) : await sendGroupMessage(active.group.id, me, url);
+      if (m) setMsgs((prev) => [...prev, m]);
+    } catch { /* */ }
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   async function startDm() {
@@ -152,21 +167,50 @@ export default function DMsWindow(_props: { api: DesktopApi }) {
               <span style={{ fontFamily: "var(--font-display)", fontSize: "14px" }}>{activeTitle}</span>
               {active.kind === "group" && <span style={{ fontFamily: "var(--font-pixel)", fontSize: "9px", color: "var(--ink-soft)" }}>{members.length} members</span>}
             </div>
-            <div ref={scroller} style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "7px", minHeight: 0 }}>
+            <div ref={scroller} style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "8px", minHeight: 0 }}>
               {msgs.length === 0 && <div style={{ textAlign: "center", fontSize: "11px", color: "var(--ink-soft)", marginTop: "20px" }}>say hi ♡</div>}
-              {msgs.map((m) => {
+              {msgs.map((m, i) => {
                 const mine = m.sender === me;
+                const prev = msgs[i - 1];
+                const showAv = !mine && (!prev || prev.sender !== m.sender);
+                const img = isImageUrl(m.body);
                 return (
-                  <div key={m.id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "75%" }}>
-                    {!mine && active.kind === "group" && <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", marginLeft: "4px", marginBottom: "2px" }}>@{m.sender}</div>}
-                    <div style={{ background: mine ? "var(--accent)" : "var(--panel-2)", color: mine ? "var(--on-accent)" : "var(--ink)", borderRadius: "14px", padding: "8px 12px", fontSize: "13px", lineHeight: 1.4 }}>{m.body}</div>
+                  <div key={m.id} style={{ display: "flex", gap: "7px", alignItems: "flex-end", justifyContent: mine ? "flex-end" : "flex-start" }}>
+                    {!mine && (showAv ? <Av name={m.sender} /> : <span style={{ width: "24px", flex: "0 0 auto" }} />)}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start", maxWidth: "74%" }}>
+                      {!mine && active.kind === "group" && showAv && <div style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", marginLeft: "4px", marginBottom: "2px" }}>@{m.sender}</div>}
+                      <div style={{ background: mine ? "var(--accent)" : "var(--panel-2)", color: mine ? "var(--on-accent)" : "var(--ink)", borderRadius: "15px", padding: img ? "5px" : "8px 12px", fontSize: "13px", lineHeight: 1.4, wordBreak: "break-word", ...(mine ? { borderBottomRightRadius: "5px" } : { borderBottomLeftRadius: "5px" }) }}>
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={m.body} alt="attachment" style={{ maxWidth: "200px", maxHeight: "200px", borderRadius: "10px", display: "block" }} />
+                        ) : m.body}
+                      </div>
+                      <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", marginTop: "2px", padding: "0 3px" }}>{relTime(m.createdAt)}</span>
+                    </div>
                   </div>
                 );
               })}
+              {msgs.length > 0 && msgs[msgs.length - 1].sender === me && (
+                <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "3px", marginTop: "-4px" }}>
+                  <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)" }}>✓ sent</span>
+                </div>
+              )}
             </div>
-            <div style={{ padding: "8px", borderTop: "var(--border)", display: "flex", gap: "6px" }}>
-              <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="message…" style={{ flex: 1, border: "var(--border)", borderRadius: "999px", background: "var(--panel-2)", padding: "9px 14px", fontSize: "13px", color: "var(--ink)", outline: "none" }} />
-              <button onClick={send} style={{ border: "none", background: "var(--accent)", color: "var(--on-accent)", borderRadius: "999px", padding: "0 16px", cursor: "pointer", fontFamily: "var(--font-display)", fontSize: "13px" }}>send</button>
+            <div style={{ padding: "8px", borderTop: "var(--border)", display: "flex", gap: "6px", alignItems: "center", position: "relative" }}>
+              {showEmoji && (
+                <div style={{ position: "absolute", left: "8px", right: "8px", bottom: "100%", marginBottom: "8px", background: "var(--panel)", border: "var(--border)", borderRadius: "14px", boxShadow: "0 14px 36px -14px rgba(0,0,0,.55)", padding: "10px", zIndex: 60 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: "2px", maxHeight: "150px", overflowY: "auto" }}>
+                    {EMOJIS.map((em, i) => (
+                      <button key={i} onClick={() => setText((t) => t + em)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "18px", padding: "3px", borderRadius: "8px", lineHeight: 1 }}>{em}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickFile} />
+              <button onClick={() => fileRef.current?.click()} title="send an image" style={dmIconBtn}>＋</button>
+              <button onClick={() => setShowEmoji((v) => !v)} title="emoji" style={{ ...dmIconBtn, background: showEmoji ? "var(--tab-active)" : "var(--panel)" }}>☺</button>
+              <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="message…" style={{ flex: 1, minWidth: 0, border: "var(--border)", borderRadius: "999px", background: "var(--panel-2)", padding: "9px 14px", fontSize: "13px", color: "var(--ink)", outline: "none" }} />
+              <button onClick={send} style={{ border: "none", background: "var(--accent)", color: "var(--on-accent)", borderRadius: "999px", padding: "0 16px", height: "38px", cursor: "pointer", fontFamily: "var(--font-display)", fontSize: "13px", flex: "0 0 auto" }}>send</button>
             </div>
           </>
         ) : (
@@ -177,6 +221,10 @@ export default function DMsWindow(_props: { api: DesktopApi }) {
   );
 }
 
+function isImageUrl(s: string): boolean {
+  return /^(blob:|data:image)/.test(s) || /\.(png|jpe?g|gif|webp|avif)(\?|#|$)/i.test(s);
+}
+const dmIconBtn: React.CSSProperties = { width: "34px", height: "34px", flex: "0 0 auto", border: "var(--border)", background: "var(--panel)", color: "var(--ink)", borderRadius: "50%", cursor: "pointer", fontSize: "16px", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 };
 const railInput: React.CSSProperties = { flex: 1, minWidth: 0, border: "var(--border)", borderRadius: "8px", background: "var(--panel-2)", padding: "6px 8px", fontSize: "11px", color: "var(--ink)", outline: "none" };
 const railBtn: React.CSSProperties = { border: "none", background: "var(--accent)", color: "var(--on-accent)", borderRadius: "8px", padding: "0 9px", cursor: "pointer", fontSize: "12px", flex: "0 0 auto" };
 function railRow(active: boolean): React.CSSProperties {
