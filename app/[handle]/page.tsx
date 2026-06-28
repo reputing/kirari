@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useParams } from "next/navigation";
-import { loadPage, addGuestbookEntry, loadGuestbook, bumpView, bumpReaction, loadStats, type PublishedPage } from "@/lib/store";
+import { loadPage, addGuestbookEntry, loadGuestbook, bumpView, bumpReaction, loadStats, loadPresence, ONLINE_WINDOW_MS, type PublishedPage } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 import { knock } from "@/lib/chat";
 import { resolveThemeVars } from "@/lib/themes";
@@ -26,6 +26,7 @@ export default function PublicPage() {
   const [entered, setEntered] = useState(false);
   const [wipe, setWipe] = useState(false);
   const [stats, setStats] = useState<{ views: number; reactions: number }>({ views: 0, reactions: 0 });
+  const [online, setOnline] = useState(false);
   const [reacted, setReacted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [authPrompt, setAuthPrompt] = useState<null | "knock" | "sign">(null);
@@ -86,6 +87,8 @@ export default function PublicPage() {
         const views = await bumpView(handle);
         const cur = await loadStats(handle);
         setStats({ views: views || cur.views, reactions: cur.reactions });
+        const seen = await loadPresence(handle);
+        setOnline(seen > 0 && Date.now() - seen < ONLINE_WINDOW_MS);
       }
       setLoading(false);
     })();
@@ -174,6 +177,7 @@ export default function PublicPage() {
           <BioPageView
             data={{ theme: page.theme, customThemes: page.customThemes, mood: page.mood, profile: page.profile, guestbook: page.guestbook, fontDisplay: page.fontDisplay, fontBody: page.fontBody }}
             animate
+            online={online}
             stats={stats}
             reacted={reacted}
             onReact={toggleReaction}
