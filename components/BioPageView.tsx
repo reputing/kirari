@@ -30,6 +30,7 @@ export default function BioPageView({
   data,
   animate = true,
   embedded = false,
+  online,
   onKnock,
   onSign,
   stats,
@@ -39,6 +40,7 @@ export default function BioPageView({
   data: BioPageData;
   animate?: boolean;
   embedded?: boolean;
+  online?: boolean;
   onKnock?: () => void;
   onSign?: () => void;
   stats?: { views: number; reactions: number };
@@ -122,7 +124,7 @@ export default function BioPageView({
         style={{
           position: "relative",
           zIndex: 3,
-          maxWidth: embedded ? "100%" : (P.pageLayout === "minimal" || P.cardless ? "440px" : "520px"),
+          maxWidth: embedded ? "100%" : (P.pageLayout === "minimal" ? "600px" : P.cardless ? "440px" : "520px"),
           margin: "0 auto",
           minHeight: centeredLayout ? "100vh" : undefined,
           justifyContent: centeredLayout ? "center" : undefined,
@@ -132,7 +134,7 @@ export default function BioPageView({
           alignItems: "center",
         }}
       >
-        <ProfileCard profile={P} mood={data.mood} views={views} reactions={stats?.reactions ?? 0} reacted={!!reacted} onReact={onReact} reveal={reveal} onKnock={onKnock} />
+        <ProfileCard profile={P} mood={data.mood} online={online} views={views} reactions={stats?.reactions ?? 0} reacted={!!reacted} onReact={onReact} reveal={reveal} onKnock={onKnock} />
         <div style={{ ...reveal(4), width: "100%" }}>
           <Links profile={P} onSign={onSign} />
         </div>
@@ -243,7 +245,7 @@ function TypingName({ text }: { text: string }) {
   );
 }
 
-function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal, onKnock }: { profile: Profile; mood: string; views: number; reactions: number; reacted: boolean; onReact?: () => void; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
+function ProfileCard({ profile, mood, online, views, reactions, reacted, onReact, reveal, onKnock }: { profile: Profile; mood: string; online?: boolean; views: number; reactions: number; reacted: boolean; onReact?: () => void; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
   const P = profile;
   const onMedia = P.pageBgType === "image" || P.pageBgType === "video";
   // On media backgrounds, the card can sit over dark/busy areas — give text a
@@ -335,8 +337,8 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
         style={{
           ...reveal(2),
           position: "relative",
-          width: isHero ? "128px" : isMinimal ? "92px" : isCompact ? "84px" : "104px",
-          height: isHero ? "128px" : isMinimal ? "92px" : isCompact ? "84px" : "104px",
+          width: isHero ? "128px" : isMinimal ? "84px" : isCompact ? "84px" : "104px",
+          height: isHero ? "128px" : isMinimal ? "84px" : isCompact ? "84px" : "104px",
           borderRadius: P.pfpShape === "circle" ? "50%" : "26px",
           border: P.pfpColor === "none" ? "none" : "3px solid " + P.pfpColor,
           background: P.pfpUrl
@@ -378,12 +380,19 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
         </div>
       )}
 
-      {!!mood && (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", marginTop: isMinimal ? "10px" : "12px", padding: "6px 13px", borderRadius: "999px", ...surface(P, { background: P.cardless || isMinimal ? "color-mix(in srgb, var(--panel) 55%, transparent)" : "var(--panel-2)", boxShadow: "none" }), backdropFilter: isMinimal ? "blur(6px)" : undefined }}>
-          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#5ed29a", boxShadow: "0 0 6px #5ed29a", animation: "statusblink 2.4s ease-in-out infinite" }} />
-          <span style={{ fontSize: "13px", fontWeight: 700 }}>{mood}</span>
-        </div>
-      )}
+      {(() => {
+        // presence-accurate status: green + pulsing only when the owner is
+        // actually around (online !== false); grey + "offline" otherwise.
+        const isOnline = online !== false;
+        const dot = isOnline ? "#5ed29a" : "#8b909c";
+        const label = mood || (isOnline ? "online" : "offline");
+        return (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", marginTop: isMinimal ? "9px" : "12px", padding: "6px 13px", borderRadius: "999px", ...surface(P, { background: P.cardless || isMinimal ? "color-mix(in srgb, var(--panel) 55%, transparent)" : "var(--panel-2)", boxShadow: "none" }), backdropFilter: isMinimal ? "blur(6px)" : undefined }}>
+            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: dot, boxShadow: isOnline ? "0 0 6px " + dot : "none", animation: isOnline ? "statusblink 2.4s ease-in-out infinite" : "none" }} />
+            <span style={{ fontSize: "13px", fontWeight: 700 }}>{label}</span>
+          </div>
+        );
+      })()}
 
       {P.bio && <p style={{ margin: isMinimal ? "11px 0 0" : "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "360px", ...textGlow }}>{P.bio}</p>}
       {P.location && (
@@ -420,25 +429,35 @@ function ProfileCard({ profile, mood, views, reactions, reacted, onReact, reveal
       >
         <Icon id="knock" size={17} /> knock &amp; chat with me
       </button>
+
+      {/* social icons live INSIDE the card now (compact row, not big boxes) */}
+      {(() => {
+        const social = P.links.filter((l) => l.icon && l.url && !l.embed);
+        if (!social.length) return null;
+        return (
+          <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "9px", marginTop: "15px" }}>
+            {social.map((l) => (
+              <a key={l.id} href={l.url} target="_blank" rel="noreferrer" title={l.label} style={{ width: "36px", height: "36px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: overMedia ? "#fff" : "var(--ink)", background: "color-mix(in srgb, var(--panel) 55%, transparent)", border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)", backdropFilter: "blur(6px)", textDecoration: "none", transition: "transform .15s ease" }}>
+                <Icon id={l.icon} size={17} />
+              </a>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
 function Links({ profile, onSign }: { profile: Profile; onSign?: () => void }) {
-  const social = profile.links.filter((l) => l.icon && l.url);
+  // Social links (a platform icon + url) render as the compact icon row inside
+  // the card. Here we only render embeds + labeled/custom links + the guestbook
+  // button — no more giant boxes duplicating the socials.
+  const cards = profile.links.filter((l) => l.embed || !(l.icon && l.url));
+  if (!cards.length) return null;
   return (
-    <div style={{ width: "100%" }}>
-      {social.length > 0 && (
-        <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "10px", marginBottom: "16px" }}>
-          {social.map((l) => (
-            <a key={l.id} href={l.url} target="_blank" rel="noreferrer" title={l.label} style={{ width: "42px", height: "42px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink)", background: "color-mix(in srgb, var(--panel) 80%, transparent)", border: "var(--border)", textDecoration: "none" }}>
-              <Icon id={l.icon} size={19} />
-            </a>
-          ))}
-        </div>
-      )}
+    <div style={{ width: "100%", marginTop: "16px" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
-        {profile.links.map((l) => {
+        {cards.map((l) => {
           const inner = (
             <>
               <span style={{ width: "38px", height: "38px", borderRadius: "12px", background: "var(--accent)", color: "var(--on-accent)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>

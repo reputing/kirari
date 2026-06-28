@@ -13,7 +13,7 @@ import type { ThemeId } from "./themes";
 import { decodeTheme } from "./themes";
 import { makeBlankState, PEOPLE, TINTS, peopleAll } from "./seed";
 import { winSize } from "./styleHelpers";
-import { savePage, loadPage } from "./store";
+import { savePage, loadPage, bumpPresence } from "./store";
 
 // ============================================================================
 // useDesktop — the single source of truth for the desktop environment.
@@ -300,6 +300,18 @@ export function useDesktop(): DesktopApi {
       }));
     } catch { /* */ }
   }, [state.windows, state.dashBgType, state.dashBgUrl, state.dashBgColor, state.iconPos, state.profile.handle]);
+
+  // presence heartbeat: while the owner has the dashboard open, mark them as
+  // recently seen so their public page can show an accurate online dot.
+  useEffect(() => {
+    const handle = state.profile.handle;
+    if (!handle) return;
+    bumpPresence(handle);
+    const id = setInterval(() => bumpPresence(handle), 45000);
+    const onVis = () => { if (document.visibilityState === "visible") bumpPresence(handle); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [state.profile.handle]);
 
   useEffect(() => {
     const handle = state.profile.handle;

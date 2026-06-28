@@ -380,6 +380,33 @@ export async function bumpReaction(handle: string, delta: number): Promise<numbe
   } catch { return 0; }
 }
 
+// ---- presence: is the owner currently around? ----------------------------
+// The dashboard pings bumpPresence on a heartbeat while it's open; the public
+// page reads loadPresence and treats "seen in the last 3 min" as online. With
+// localStorage this is same-browser only; with Supabase Realtime Presence (see
+// supabase/README) it becomes true cross-device presence.
+export const ONLINE_WINDOW_MS = 3 * 60 * 1000;
+
+export async function bumpPresence(handle: string): Promise<void> {
+  const h = handle.toLowerCase();
+  try { localStorage.setItem("kirari:seen:" + h, String(Date.now())); } catch { /* */ }
+  if (supabaseConfigured && supabase) {
+    try { await supabase.rpc("bump_presence", { h }); } catch { /* table/rpc optional */ }
+  }
+}
+
+export async function loadPresence(handle: string): Promise<number> {
+  const h = handle.toLowerCase();
+  if (supabaseConfigured && supabase) {
+    try {
+      const { data } = await supabase.from("page_stats").select("last_seen").eq("handle", h).maybeSingle();
+      const t = data?.last_seen ? new Date(data.last_seen as string).getTime() : 0;
+      if (t) return t;
+    } catch { /* fall through to local */ }
+  }
+  try { return Number(localStorage.getItem("kirari:seen:" + h) || 0); } catch { return 0; }
+}
+
 // Read current stats without incrementing.
 export async function loadStats(handle: string): Promise<PageStats> {
   const h = handle.toLowerCase();
