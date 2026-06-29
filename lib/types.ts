@@ -41,6 +41,7 @@ export interface Profile {
   bio: string;
   location?: string; // optional "where" line shown under the bio (guns.lol style)
   showUid?: boolean; // show a UID pill on hover (default true)
+  uid?: number; // real sequential account number (assigned at signup)
   since: string;
   bg: BgPattern;
   pfpShape: PfpShape;

@@ -136,10 +136,10 @@ export default function BioPageView({
       >
         <ProfileCard profile={P} mood={data.mood} online={online} views={views} reactions={stats?.reactions ?? 0} reacted={!!reacted} onReact={onReact} reveal={reveal} onKnock={onKnock} />
         <div style={{ ...reveal(4), width: "100%" }}>
-          <Links profile={P} onSign={onSign} />
+          <Links profile={P} onSign={onSign} embedded={embedded} />
         </div>
         <div style={{ ...reveal(5), width: "100%" }}>
-          <Guestbook entries={data.guestbook} profile={P} onSign={onSign} />
+          <Guestbook entries={data.guestbook} profile={P} onSign={onSign} embedded={embedded} />
         </div>
         {!embedded && (
           <div style={{ ...reveal(5), marginTop: "34px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", opacity: 0.8 }}>
@@ -213,14 +213,6 @@ function surface(profile: Profile, extra?: CSSProperties): CSSProperties {
   };
 }
 
-// Stable per-handle UID (guns.lol-style), shown on hover over the card.
-function uidFromHandle(h: string): string {
-  let n = 2166136261;
-  for (let i = 0; i < h.length; i++) { n ^= h.charCodeAt(i); n = Math.imul(n, 16777619); }
-  const num = 100000 + ((n >>> 0) % 9900000);
-  return num.toLocaleString();
-}
-
 // Typewriter name effect: types the name, holds, deletes, repeats — with cursor.
 function TypingName({ text }: { text: string }) {
   const [n, setN] = useState(0);
@@ -269,7 +261,7 @@ function ProfileCard({ profile, mood, online, views, reactions, reacted, onReact
     setHovered(false);
     if (cardRef.current) cardRef.current.style.transform = "perspective(800px) rotateX(0) rotateY(0)";
   }
-  const uid = uidFromHandle(P.handle || "");
+  const uid = P.uid != null ? "#" + P.uid : "";
   const idleAnim: CSSProperties = P.cardAnim === "float" ? { animation: "cardfloat 5s ease-in-out infinite" } : P.cardAnim === "pulse" ? { animation: "cardpulse 3.5s ease-in-out infinite" } : {};
   const neon: CSSProperties = P.neonGlow ? { boxShadow: "0 0 22px -2px var(--accent), 0 0 50px -10px var(--accent)" } : {};
   const animBorder: CSSProperties = P.animatedBorder
@@ -326,7 +318,7 @@ function ProfileCard({ profile, mood, online, views, reactions, reacted, onReact
       }}
     >
       {/* UID pill — fades in on hover (guns.lol style) */}
-      {P.showUid !== false && (
+      {P.showUid !== false && uid && (
         <div style={{ position: "absolute", top: "-11px", left: "50%", transform: "translateX(-50%)", opacity: hovered ? 1 : 0, transition: "opacity .25s ease", pointerEvents: "none", fontFamily: "var(--font-pixel)", fontSize: "9px", letterSpacing: "0.5px", color: softInk, background: "color-mix(in srgb, var(--panel) 72%, transparent)", border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)", borderRadius: "999px", padding: "3px 10px", backdropFilter: "blur(6px)", whiteSpace: "nowrap", zIndex: 4 }}>
           UID {uid}
         </div>
@@ -448,11 +440,13 @@ function ProfileCard({ profile, mood, online, views, reactions, reacted, onReact
   );
 }
 
-function Links({ profile, onSign }: { profile: Profile; onSign?: () => void }) {
+function Links({ profile, onSign, embedded }: { profile: Profile; onSign?: () => void; embedded?: boolean }) {
   // Social links (a platform icon + url) render as the compact icon row inside
   // the card. Here we only render embeds + labeled/custom links + the guestbook
-  // button — no more giant boxes duplicating the socials.
-  const cards = profile.links.filter((l) => l.embed || !(l.icon && l.url));
+  // button — no more giant boxes duplicating the socials. In the dashboard
+  // preview (embedded) we drop the "sign my guestbook" card — you don't sign
+  // your own guestbook.
+  const cards = profile.links.filter((l) => (l.embed || !(l.icon && l.url)) && !(embedded && l.kind === "guest"));
   if (!cards.length) return null;
   return (
     <div style={{ width: "100%", marginTop: "16px" }}>
@@ -511,7 +505,7 @@ function Links({ profile, onSign }: { profile: Profile; onSign?: () => void }) {
   );
 }
 
-function Guestbook({ entries, profile, onSign }: { entries: GuestEntry[]; profile: Profile; onSign?: () => void }) {
+function Guestbook({ entries, profile, onSign, embedded }: { entries: GuestEntry[]; profile: Profile; onSign?: () => void; embedded?: boolean }) {
   const minimal = (profile.pageLayout || (profile.cardless ? "minimal" : "classic")) === "minimal";
   const entryBg = minimal ? "color-mix(in srgb, var(--panel) 35%, transparent)" : (profile.cardless ? "color-mix(in srgb, var(--panel) 70%, transparent)" : "var(--panel-2)");
   return (
@@ -533,9 +527,11 @@ function Guestbook({ entries, profile, onSign }: { entries: GuestEntry[]; profil
           </div>
         ))}
       </div>
-      <button onClick={onSign} style={{ width: "100%", marginTop: "10px", padding: "12px", border: "1px solid color-mix(in srgb, var(--ink) 18%, transparent)", borderRadius: "var(--radius)", background: minimal ? "color-mix(in srgb, var(--panel) 25%, transparent)" : "color-mix(in srgb, var(--panel) 78%, transparent)", backdropFilter: minimal ? "blur(6px)" : undefined, color: "var(--ink)", fontFamily: "var(--font-display)", fontSize: "13px", cursor: "pointer" }}>
-        ✎ sign the guestbook
-      </button>
+      {!embedded && (
+        <button onClick={onSign} style={{ width: "100%", marginTop: "10px", padding: "12px", border: "1px solid color-mix(in srgb, var(--ink) 18%, transparent)", borderRadius: "var(--radius)", background: minimal ? "color-mix(in srgb, var(--panel) 25%, transparent)" : "color-mix(in srgb, var(--panel) 78%, transparent)", backdropFilter: minimal ? "blur(6px)" : undefined, color: "var(--ink)", fontFamily: "var(--font-display)", fontSize: "13px", cursor: "pointer" }}>
+          ✎ sign the guestbook
+        </button>
+      )}
     </div>
   );
 }
