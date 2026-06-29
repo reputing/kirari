@@ -17,7 +17,8 @@
 @keyframes spinhue { to { transform: rotate(360deg) } }
 @keyframes wipeOut { 0% { transform: scaleX(1) } 100% { transform: scaleX(0) } }
 @keyframes wipeReveal { 0% { transform: scaleY(1) } 100% { transform: scaleY(0) } }
-@keyframes irisReveal { 0% { clip-path: circle(150% at 50% 50%) } 100% { clip-path: circle(0% at 50% 50%) } }
+@keyframes splitTop { from { transform: translateY(0) } to { transform: translateY(-100%) } }
+@keyframes splitBottom { from { transform: translateY(0) } to { transform: translateY(100%) } }
 @keyframes splashFade { 0% { opacity: 1 } 100% { opacity: 0; visibility: hidden } }
 @keyframes hue { 0% { background-position: 0% 50% } 100% { background-position: 200% 50% } }
 @keyframes neonflicker { 0%,100% { text-shadow: 0 0 6px var(--accent), 0 0 14px var(--accent) } 47% { text-shadow: 0 0 6px var(--accent), 0 0 14px var(--accent) } 48% { text-shadow: none } 49% { text-shadow: 0 0 6px var(--accent), 0 0 22px var(--accent), 0 0 38px var(--accent) } 50% { text-shadow: none } 51% { text-shadow: 0 0 6px var(--accent), 0 0 14px var(--accent) } }

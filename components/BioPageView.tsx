@@ -121,7 +121,7 @@ export default function BioPageView({
   const gradeFilter = gradeCss(P.grade);
   // guns.lol vibe: the minimal layout sits vertically centered on the wallpaper.
   // min-height (not height) keeps tall pages fully scrollable.
-  const centeredLayout = !embedded && P.pageLayout === "minimal";
+  const centeredLayout = !embedded && (P.pageLayout === "minimal" || !!P.centerCard);
   const hide = (k: string) => !!P.hidden?.includes(k);
 
   return (
