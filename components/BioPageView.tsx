@@ -31,6 +31,7 @@ export default function BioPageView({
   animate = true,
   embedded = false,
   online,
+  isOwner,
   onKnock,
   onSign,
   stats,
@@ -41,6 +42,7 @@ export default function BioPageView({
   animate?: boolean;
   embedded?: boolean;
   online?: boolean;
+  isOwner?: boolean;
   onKnock?: () => void;
   onSign?: () => void;
   stats?: { views: number; reactions: number };
@@ -116,9 +118,9 @@ export default function BioPageView({
       }}
     >
       <div style={{ position: embedded ? "absolute" : "fixed", inset: 0, zIndex: 0, filter: gradeFilter, pointerEvents: "none" }}>
-        <PageBackground profile={P} embedded={embedded} show={stage >= 1} />
+        <PageBackground profile={P} embedded={embedded} show />
       </div>
-      <EffectsOverlay profile={P} embedded={embedded} show={stage >= 1} />
+      <EffectsOverlay profile={P} embedded={embedded} show />
 
       <main
         style={{
@@ -134,7 +136,7 @@ export default function BioPageView({
           alignItems: "center",
         }}
       >
-        <ProfileCard profile={P} mood={data.mood} online={online} views={views} reactions={stats?.reactions ?? 0} reacted={!!reacted} onReact={onReact} reveal={reveal} onKnock={onKnock} />
+        <ProfileCard profile={P} mood={data.mood} online={online} isOwner={isOwner} views={views} reactions={stats?.reactions ?? 0} reacted={!!reacted} onReact={onReact} reveal={reveal} onKnock={onKnock} />
         <div style={{ ...reveal(4), width: "100%" }}>
           <Links profile={P} onSign={onSign} embedded={embedded} />
         </div>
@@ -237,7 +239,7 @@ function TypingName({ text }: { text: string }) {
   );
 }
 
-function ProfileCard({ profile, mood, online, views, reactions, reacted, onReact, reveal, onKnock }: { profile: Profile; mood: string; online?: boolean; views: number; reactions: number; reacted: boolean; onReact?: () => void; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
+function ProfileCard({ profile, mood, online, isOwner, views, reactions, reacted, onReact, reveal, onKnock }: { profile: Profile; mood: string; online?: boolean; isOwner?: boolean; views: number; reactions: number; reacted: boolean; onReact?: () => void; reveal: (n: number) => CSSProperties; onKnock?: () => void }) {
   const P = profile;
   const onMedia = P.pageBgType === "image" || P.pageBgType === "video";
   // On media backgrounds, the card can sit over dark/busy areas — give text a
@@ -417,9 +419,9 @@ function ProfileCard({ profile, mood, online, views, reactions, reacted, onReact
 
       <button
         style={{ width: "100%", marginTop: "16px", padding: "13px", border: isMinimal ? "1px solid color-mix(in srgb, var(--ink) 25%, transparent)" : "none", borderRadius: "var(--radius)", background: isMinimal ? "color-mix(in srgb, var(--panel) 30%, transparent)" : "var(--accent)", color: isMinimal ? "var(--ink)" : "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "15px", cursor: "pointer", boxShadow: isMinimal ? "none" : "var(--btn-shadow)", backdropFilter: isMinimal ? "blur(4px)" : undefined, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
-        onClick={onKnock}
+        onClick={isOwner ? () => { if (typeof window !== "undefined") window.location.href = "/dashboard"; } : onKnock}
       >
-        <Icon id="knock" size={17} /> knock &amp; chat with me
+        {isOwner ? <>✎ edit your page</> : <><Icon id="knock" size={17} /> knock &amp; chat with me</>}
       </button>
 
       {/* social icons live INSIDE the card now (compact row, not big boxes) */}

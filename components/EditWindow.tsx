@@ -191,6 +191,11 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
           <button key={s} onClick={() => api.setProfileVal("entranceStyle", s)} style={pageThemeBtn((P.entranceStyle || "fade") === s)}>{s}</button>
         ))}
       </div>
+      <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "0 0 6px" }}>CLICK-TO-ENTER TEXT</div>
+      <input value={P.enterText || ""} onChange={(e) => api.setProfileVal("enterText", e.target.value)} placeholder="a little corner of the web ♡" style={{ ...inputStyle, marginBottom: "8px", fontSize: "12.5px" }} />
+      <div style={{ display: "flex", marginBottom: "16px" }}>
+        <MiniToggle label="type it out" on={!!P.enterTyping} onClick={() => api.setProfileVal("enterTyping", !P.enterTyping)} />
+      </div>
 
       {/* ambience + grade */}
       <SectionLabel>✦ ATMOSPHERE</SectionLabel>

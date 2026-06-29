@@ -75,6 +75,8 @@ export interface Profile {
   entranceDelay?: number; // seconds the bg plays before content appears (0-10)
   entranceStyle?: "fade" | "drop" | "rise" | "zoom" | "glitch" | "iris"; // reveal style
   staggerMs?: number; // ms between each element appearing (default 220)
+  enterText?: string; // custom click-to-enter tagline (replaces the default)
+  enterTyping?: boolean; // type the click-to-enter tagline out, char by char
 
   // ---- ambience / grade ----
   ambience?: "none" | "petals" | "rain" | "snow" | "embers" | "orbs"; // overlay
