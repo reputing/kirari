@@ -272,6 +272,7 @@ create policy "dm messages participant" on public.dm_messages for all
 drop policy if exists "dm notifs rw" on public.dm_notifs;
 drop policy if exists "dm notifs insert" on public.dm_notifs;
 drop policy if exists "dm notifs read own" on public.dm_notifs;
+drop policy if exists "dm notifs update own" on public.dm_notifs;
 create policy "dm notifs insert" on public.dm_notifs for insert to authenticated with check (true);
 create policy "dm notifs read own" on public.dm_notifs for select to authenticated using (true);
 create policy "dm notifs update own" on public.dm_notifs for update to authenticated using (true) with check (true);
