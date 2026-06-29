@@ -5,7 +5,7 @@ import type { ThemeId } from "./themes";
 // store can be swapped for real Postgres rows with minimal churn.
 // ============================================================================
 
-export type TextFx = "none" | "glow" | "rainbow" | "sticker" | "retro3d" | "neon" | "chrome" | "flame" | "typing";
+export type TextFx = "none" | "glow" | "rainbow" | "sticker" | "retro3d" | "neon" | "chrome" | "flame" | "typing" | "gradient" | "aurora" | "shimmer";
 export type BgPattern = "none" | "dots" | "grid" | "gingham" | "stripes" | "hearts";
 export type PfpShape = "rounded" | "circle";
 export type Deco = "♡" | "★" | "✿" | "none";
@@ -42,6 +42,7 @@ export interface Profile {
   location?: string; // optional "where" line shown under the bio (guns.lol style)
   showUid?: boolean; // show a UID pill on hover (default true)
   uid?: number; // real sequential account number (assigned at signup)
+  hidden?: string[]; // biolink section keys hidden by the owner (badges/status/bio/location/counters/knock/socials/links/guestbook)
   since: string;
   bg: BgPattern;
   pfpShape: PfpShape;

@@ -103,6 +103,7 @@ export default function BioPageView({
   // guns.lol vibe: the minimal layout sits vertically centered on the wallpaper.
   // min-height (not height) keeps tall pages fully scrollable.
   const centeredLayout = !embedded && P.pageLayout === "minimal";
+  const hide = (k: string) => !!P.hidden?.includes(k);
 
   return (
     <Wrapper
@@ -137,12 +138,16 @@ export default function BioPageView({
         }}
       >
         <ProfileCard profile={P} mood={data.mood} online={online} isOwner={isOwner} views={views} reactions={stats?.reactions ?? 0} reacted={!!reacted} onReact={onReact} reveal={reveal} onKnock={onKnock} />
-        <div style={{ ...reveal(4), width: "100%" }}>
-          <Links profile={P} onSign={onSign} embedded={embedded} />
-        </div>
-        <div style={{ ...reveal(5), width: "100%" }}>
-          <Guestbook entries={data.guestbook} profile={P} onSign={onSign} embedded={embedded} />
-        </div>
+        {!hide("links") && (
+          <div style={{ ...reveal(4), width: "100%" }}>
+            <Links profile={P} onSign={onSign} embedded={embedded} />
+          </div>
+        )}
+        {!hide("guestbook") && (
+          <div style={{ ...reveal(5), width: "100%" }}>
+            <Guestbook entries={data.guestbook} profile={P} onSign={onSign} embedded={embedded} />
+          </div>
+        )}
         {!embedded && (
           <div style={{ ...reveal(5), marginTop: "34px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", opacity: 0.8 }}>
             <a href="/" style={{ color: "inherit", textDecoration: "none" }}>made on kirari.cafe</a>
@@ -198,12 +203,14 @@ function surface(profile: Profile, extra?: CSSProperties): CSSProperties {
   const shadowK = (profile.shadowStrength ?? 50) / 100;
   if (profile.translucent) {
     const amt = profile.translucentAmt ?? 68;
+    // frosted glass: soft gradient tint, strong blur + saturation, a bright
+    // hairline and an inner top highlight so it reads like real glass.
     return {
-      background: `color-mix(in srgb, var(--panel) ${amt}%, transparent)`,
-      border: "1px solid color-mix(in srgb, var(--ink) 16%, transparent)",
-      backdropFilter: "blur(16px)",
-      WebkitBackdropFilter: "blur(16px)",
-      boxShadow: `0 ${18 * shadowK + 4}px ${46 * shadowK + 8}px -20px rgba(0,0,0,${0.6 * shadowK + 0.15})`,
+      background: `linear-gradient(155deg, color-mix(in srgb, var(--panel) ${amt}%, transparent), color-mix(in srgb, var(--panel) ${Math.max(8, amt - 16)}%, transparent))`,
+      border: "1px solid color-mix(in srgb, #fff 18%, transparent)",
+      backdropFilter: "blur(22px) saturate(1.5)",
+      WebkitBackdropFilter: "blur(22px) saturate(1.5)",
+      boxShadow: `0 ${20 * shadowK + 6}px ${52 * shadowK + 12}px -20px rgba(0,0,0,${0.6 * shadowK + 0.2}), inset 0 1px 0 rgba(255,255,255,.18)`,
       ...extra,
     };
   }
@@ -264,6 +271,7 @@ function ProfileCard({ profile, mood, online, isOwner, views, reactions, reacted
     if (cardRef.current) cardRef.current.style.transform = "perspective(800px) rotateX(0) rotateY(0)";
   }
   const uid = P.uid != null ? "#" + P.uid : "";
+  const hide = (k: string) => !!P.hidden?.includes(k);
   const idleAnim: CSSProperties = P.cardAnim === "float" ? { animation: "cardfloat 5s ease-in-out infinite" } : P.cardAnim === "pulse" ? { animation: "cardpulse 3.5s ease-in-out infinite" } : {};
   const neon: CSSProperties = P.neonGlow ? { boxShadow: "0 0 22px -2px var(--accent), 0 0 50px -10px var(--accent)" } : {};
   const animBorder: CSSProperties = P.animatedBorder
@@ -282,11 +290,11 @@ function ProfileCard({ profile, mood, online, isOwner, views, reactions, reacted
   // (frosted glass), readable over any wallpaper. hero stays bare. cardless
   // forces a truly transparent surface regardless of layout.
   const frosted: CSSProperties = {
-    background: "color-mix(in srgb, var(--panel) 26%, transparent)",
-    border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)",
-    backdropFilter: "blur(16px)",
-    WebkitBackdropFilter: "blur(16px)",
-    boxShadow: "0 28px 70px -30px rgba(0,0,0,.7)",
+    background: "linear-gradient(155deg, color-mix(in srgb, var(--panel) 30%, transparent), color-mix(in srgb, var(--panel) 14%, transparent))",
+    border: "1px solid color-mix(in srgb, #fff 16%, transparent)",
+    backdropFilter: "blur(22px) saturate(1.5)",
+    WebkitBackdropFilter: "blur(22px) saturate(1.5)",
+    boxShadow: "0 28px 70px -30px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.16)",
     borderRadius: "var(--radius)",
   };
   const containerSurface: CSSProperties = isMinimal
@@ -359,7 +367,7 @@ function ProfileCard({ profile, mood, online, isOwner, views, reactions, reacted
       </div>
 
       {/* badges */}
-      {P.badges && P.badges.length > 0 && (
+      {!hide("badges") && P.badges && P.badges.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", justifyContent: "center", marginTop: "9px" }}>
           {P.badges.map((bid) => {
             const b = badgeById(bid);
@@ -374,7 +382,7 @@ function ProfileCard({ profile, mood, online, isOwner, views, reactions, reacted
         </div>
       )}
 
-      {(() => {
+      {!hide("status") && (() => {
         // presence-accurate status: green + pulsing only when the owner is
         // actually around (online !== false); grey + "offline" otherwise.
         const isOnline = online !== false;
@@ -388,8 +396,8 @@ function ProfileCard({ profile, mood, online, isOwner, views, reactions, reacted
         );
       })()}
 
-      {P.bio && <p style={{ margin: isMinimal ? "11px 0 0" : "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "360px", ...textGlow }}>{P.bio}</p>}
-      {P.location && (
+      {!hide("bio") && P.bio && <p style={{ margin: isMinimal ? "11px 0 0" : "14px 0 0", fontSize: "14px", lineHeight: 1.55, color: inkOnMedia, maxWidth: "360px", ...textGlow }}>{P.bio}</p>}
+      {!hide("location") && P.location && (
         <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "8px", fontSize: "12.5px", color: softInk, ...textGlow }}>
           <Icon id="pin" size={13} /> {P.location}
         </div>
@@ -398,7 +406,7 @@ function ProfileCard({ profile, mood, online, isOwner, views, reactions, reacted
 
       {/* counters: minimal = subtle inline line (guns.lol "👁 519"); else strip.
           the ♡ is a real tappable reaction that counts. */}
-      {isMinimal ? (
+      {!hide("counters") && (isMinimal ? (
         <div style={{ display: "flex", gap: "16px", marginTop: "13px", fontFamily: "var(--font-pixel)", fontSize: "11px", color: softInk, ...textGlow, alignItems: "center" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}><Icon id="eye" size={13} /> {Number(views).toLocaleString()}</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}><Icon id="knock" size={13} /> {Number(P.counters.knocks).toLocaleString()}</span>
@@ -415,17 +423,19 @@ function ProfileCard({ profile, mood, online, isOwner, views, reactions, reacted
             </button>
           ))}
         </div>
-      )}
+      ))}
 
+      {!hide("knock") && (
       <button
         style={{ width: "100%", marginTop: "16px", padding: "13px", border: isMinimal ? "1px solid color-mix(in srgb, var(--ink) 25%, transparent)" : "none", borderRadius: "var(--radius)", background: isMinimal ? "color-mix(in srgb, var(--panel) 30%, transparent)" : "var(--accent)", color: isMinimal ? "var(--ink)" : "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "15px", cursor: "pointer", boxShadow: isMinimal ? "none" : "var(--btn-shadow)", backdropFilter: isMinimal ? "blur(4px)" : undefined, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
         onClick={isOwner ? () => { if (typeof window !== "undefined") window.location.href = "/dashboard"; } : onKnock}
       >
         {isOwner ? <>✎ edit your page</> : <><Icon id="knock" size={17} /> knock &amp; chat with me</>}
       </button>
+      )}
 
       {/* social icons live INSIDE the card now (compact row, not big boxes) */}
-      {(() => {
+      {!hide("socials") && (() => {
         const social = P.links.filter((l) => l.icon && l.url && !l.embed);
         if (!social.length) return null;
         return (

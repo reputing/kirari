@@ -21,12 +21,15 @@ const BGS: [BgPattern, string][] = [
 ];
 const FXS: [TextFx, string][] = [
   ["none", "plain"],
+  ["gradient", "gradient"],
+  ["shimmer", "shimmer"],
+  ["aurora", "aurora"],
   ["glow", "glow"],
-  ["rainbow", "rainbow"],
   ["neon", "neon"],
   ["chrome", "chrome"],
   ["flame", "flame"],
   ["typing", "typing"],
+  ["rainbow", "rainbow"],
   ["sticker", "sticker"],
   ["retro3d", "retro 3d"],
 ];
@@ -169,6 +172,26 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
         {(["classic", "minimal", "hero", "compact"] as const).map((l) => (
           <button key={l} onClick={() => api.setProfileVal("pageLayout", l)} style={pageThemeBtn((P.pageLayout || "classic") === l)}>{l}</button>
         ))}
+      </div>
+
+      {/* sections — toggle what shows on the public page */}
+      <SectionLabel>✦ SECTIONS</SectionLabel>
+      <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "8px" }}>turn anything off — leave just your name (and badges) if you want.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "16px" }}>
+        {([["badges", "badges"], ["status", "status"], ["bio", "bio"], ["location", "location"], ["counters", "stats"], ["socials", "socials"], ["knock", "knock button"], ["links", "links"], ["guestbook", "guestbook"]] as [string, string][]).map(([k, label]) => {
+          const shown = !(P.hidden || []).includes(k);
+          return (
+            <MiniToggle
+              key={k}
+              label={label}
+              on={shown}
+              onClick={() => {
+                const h = P.hidden || [];
+                api.setProfileVal("hidden", h.includes(k) ? h.filter((x) => x !== k) : [...h, k]);
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* page theme — independent of dashboard skin */}
