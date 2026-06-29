@@ -155,6 +155,7 @@ input,textarea,button,select{font-family:inherit}
 @keyframes neonflicker{0%,100%{text-shadow:0 0 6px var(--accent),0 0 14px var(--accent)}48%{text-shadow:none}49%{text-shadow:0 0 6px var(--accent),0 0 22px var(--accent),0 0 38px var(--accent)}50%{text-shadow:none}51%{text-shadow:0 0 6px var(--accent),0 0 14px var(--accent)}}
 @keyframes flameglow{0%,100%{filter:drop-shadow(0 -1px 4px #ff5e1a) drop-shadow(0 -2px 9px #ffb020)}50%{filter:drop-shadow(0 -2px 7px #ff7a1a) drop-shadow(0 -4px 14px #ffd24a)}}
 @keyframes shimmer{0%{background-position:140% 0}100%{background-position:-40% 0}}
+@keyframes firefly{0%,100%{transform:translate(0,0)}25%{transform:translate(16px,-12px)}50%{transform:translate(-10px,10px)}75%{transform:translate(12px,14px)}}
 @keyframes twinkle{0%,100%{opacity:.2}50%{opacity:.85}}
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
 @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-5px);opacity:1}}
