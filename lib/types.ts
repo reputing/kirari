@@ -66,6 +66,7 @@ export interface Profile {
   shadowStrength?: number; // 0..100 card drop-shadow intensity (default 50)
   // ---- layout preset (overall page composition) ----
   pageLayout?: "classic" | "minimal" | "hero" | "compact"; // classic = card; minimal = guns.lol-style floating
+  centerCard?: boolean; // vertically center the card on the page (any layout)
   badges?: string[]; // badge ids shown on the card (self-pick + admin-granted)
   badgeColors?: Record<string, string>; // per-badge color override (id -> hex)
 

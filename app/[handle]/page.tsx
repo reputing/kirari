@@ -161,10 +161,13 @@ export default function PublicPage() {
 
       {!entered && <BootSplash handle={handle} ready onEnter={enter} profile={page.profile} />}
 
-      {/* clean little iris opening — a solid panel that irises shut to the
-          center, revealing the page mounted beneath. */}
+      {/* cinematic split reveal — two solid bars (top + bottom) slide apart to
+          reveal the page mounted beneath. */}
       {wipe && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 70, background: "var(--bg, #0e0e12)", pointerEvents: "none", animation: "irisReveal .8s cubic-bezier(.7,0,.25,1) forwards" }} />
+        <div style={{ position: "fixed", inset: 0, zIndex: 70, pointerEvents: "none", overflow: "hidden" }}>
+          <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: "50%", background: "var(--bg, #0e0e12)", animation: "splitTop .85s cubic-bezier(.76,0,.24,1) forwards" }} />
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "50%", background: "var(--bg, #0e0e12)", animation: "splitBottom .85s cubic-bezier(.76,0,.24,1) forwards" }} />
+        </div>
       )}
 
       {entered && (
@@ -328,31 +331,10 @@ function BootSplash({ handle, ready, onEnter, profile }: { handle: string; ready
         <div style={{ fontFamily: "var(--font-pixel, 'DotGothic16', monospace)", fontSize: "12px", color: "var(--ink-soft, #c79bb6)", marginBottom: "28px", minHeight: "16px" }}>
           {ready ? (profile?.enterTyping ? <Typed text={enterTagline} /> : enterTagline) : "loading…"}
         </div>
-        {ready ? (
-          <button
-            onClick={onEnter}
-            style={{
-              border: "none",
-              background: "var(--accent, #ff7ec0)",
-              color: "var(--on-accent, #fff)",
-              fontFamily: "var(--font-display, sans-serif)",
-              fontSize: "16px",
-              padding: "13px 34px",
-              borderRadius: "999px",
-              cursor: "pointer",
-              boxShadow: "0 8px 22px -8px rgba(0,0,0,.45)",
-              animation: "glowpulse 2s ease-in-out infinite",
-            }}
-          >
-            ✦ click to enter ✦
-          </button>
-        ) : (
+        {/* whole splash is click-to-enter — no visible button; just a loader
+            while the page resolves. */}
+        {!ready && (
           <div style={{ width: "26px", height: "26px", borderRadius: "50%", border: "3px solid rgba(255,255,255,.16)", borderTopColor: "var(--accent, #9a8cff)", animation: "spinhue .8s linear infinite", margin: "0 auto" }} />
-        )}
-        {ready && profile?.audioUrl && (
-          <div style={{ marginTop: "16px", fontFamily: "var(--font-pixel, monospace)", fontSize: "10px", color: "var(--ink-soft, #c79bb6)" }}>
-            ♫ {profile.audioTitle || "music"} — plays on enter
-          </div>
         )}
       </div>
     </div>
@@ -387,7 +369,7 @@ function AudioToggle({ audioRef, profile }: { audioRef: React.RefObject<HTMLAudi
         }
       }}
       title={playing ? "pause" : "play"}
-      style={{ position: "fixed", top: "16px", left: "16px", zIndex: 20, display: "flex", alignItems: "center", gap: "9px", padding: "8px 14px 8px 10px", background: "var(--panel)", border: "var(--border)", borderRadius: "999px", cursor: "pointer", color: "var(--ink)", boxShadow: "var(--shadow)", maxWidth: "210px" }}
+      style={{ position: "fixed", top: "16px", left: "16px", zIndex: 20, display: "flex", alignItems: "center", gap: "9px", padding: "8px 14px 8px 10px", background: "color-mix(in srgb, var(--panel) 55%, transparent)", border: "1px solid color-mix(in srgb, #fff 14%, transparent)", backdropFilter: "blur(14px) saturate(1.4)", WebkitBackdropFilter: "blur(14px) saturate(1.4)", borderRadius: "999px", cursor: "pointer", color: "var(--ink)", boxShadow: "0 10px 28px -12px rgba(0,0,0,.5)", maxWidth: "210px" }}
     >
       <span style={{ width: "26px", height: "26px", borderRadius: "50%", background: "var(--accent)", color: "var(--on-accent)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", fontSize: "12px" }}>{playing ? "❚❚" : "►"}</span>
       <span style={{ display: "flex", flexDirection: "column", minWidth: 0, lineHeight: 1.2, textAlign: "left" }}>

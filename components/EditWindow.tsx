@@ -173,6 +173,9 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
           <button key={l} onClick={() => api.setProfileVal("pageLayout", l)} style={pageThemeBtn((P.pageLayout || "classic") === l)}>{l}</button>
         ))}
       </div>
+      <div style={{ display: "flex", marginBottom: "16px" }}>
+        <MiniToggle label="center on screen" on={!!P.centerCard} onClick={() => api.setProfileVal("centerCard", !P.centerCard)} />
+      </div>
 
       {/* sections — toggle what shows on the public page */}
       <SectionLabel>✦ SECTIONS</SectionLabel>
