@@ -451,3 +451,70 @@ do $$
 begin
   begin alter publication supabase_realtime add table public.group_messages; exception when duplicate_object then null; end;
 end $$;
+
+-- ============================================================================
+-- Presence: when was a handle's owner last active? The dashboard heartbeats
+-- bump_presence; the public page reads page_stats.last_seen and shows a live
+-- "online" dot when it's within ~3 minutes. (Reuses the page_stats table.)
+-- ============================================================================
+alter table public.page_stats add column if not exists last_seen timestamptz;
+
+create or replace function public.bump_presence(h text) returns void
+  language sql security definer set search_path = public as $$
+  insert into public.page_stats (handle, last_seen) values (h, now())
+  on conflict (handle) do update set last_seen = now();
+$$;
+
+-- ============================================================================
+-- Account UID: a real, site-wide sequential number per handle (first = 1).
+-- claim_uid is idempotent — returns the existing number if already assigned, so
+-- it's safe to call on every load. (App: call rpc('claim_uid',{h}) at signup.)
+-- ============================================================================
+create table if not exists public.account_uids (
+  handle text primary key,
+  uid    bigint not null
+);
+create sequence if not exists public.account_uid_seq start 1;
+alter table public.account_uids enable row level security;
+drop policy if exists "uids read" on public.account_uids;
+create policy "uids read" on public.account_uids for select using (true);
+
+create or replace function public.claim_uid(h text) returns bigint
+  language plpgsql security definer set search_path = public as $$
+declare v bigint;
+begin
+  select uid into v from public.account_uids where handle = h;
+  if v is not null then return v; end if;
+  insert into public.account_uids (handle, uid) values (h, nextval('public.account_uid_seq'))
+  on conflict (handle) do nothing;
+  select uid into v from public.account_uids where handle = h;
+  return v;
+end;
+$$;
+
+-- ============================================================================
+-- DM read receipts: the last time each handle read a thread. A message you sent
+-- is "seen" once the OTHER participant's last_read_at is at/after it was sent.
+-- (App: call mark_read(thread, me) when you open a thread; read the partner's
+-- row to drive the ✓✓ "seen" state.)
+-- ============================================================================
+create table if not exists public.dm_reads (
+  thread_id    text not null,
+  handle       text not null,
+  last_read_at timestamptz not null default now(),
+  primary key (thread_id, handle)
+);
+alter table public.dm_reads enable row level security;
+drop policy if exists "dm reads rw" on public.dm_reads;
+create policy "dm reads rw" on public.dm_reads for all to authenticated using (true) with check (true);
+
+create or replace function public.mark_read(t text, who text) returns void
+  language sql security definer set search_path = public as $$
+  insert into public.dm_reads (thread_id, handle, last_read_at) values (t, who, now())
+  on conflict (thread_id, handle) do update set last_read_at = now();
+$$;
+
+do $$
+begin
+  begin alter publication supabase_realtime add table public.dm_reads; exception when duplicate_object then null; end;
+end $$;
