@@ -160,7 +160,7 @@ export default function DMsWindow(_props: { api: DesktopApi }) {
       </div>
 
       {/* conversation */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
         {active ? (
           <>
             <div style={{ padding: "9px 12px", borderBottom: "var(--border)", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -172,7 +172,10 @@ export default function DMsWindow(_props: { api: DesktopApi }) {
               {msgs.map((m, i) => {
                 const mine = m.sender === me;
                 const prev = msgs[i - 1];
+                const next = msgs[i + 1];
                 const showAv = !mine && (!prev || prev.sender !== m.sender);
+                // only timestamp the end of a run / after a 5-min gap, not every line
+                const showTime = !next || next.sender !== m.sender || next.createdAt - m.createdAt > 5 * 60 * 1000;
                 const img = isImageUrl(m.body);
                 return (
                   <div key={m.id} style={{ display: "flex", gap: "7px", alignItems: "flex-end", justifyContent: mine ? "flex-end" : "flex-start" }}>
@@ -185,7 +188,7 @@ export default function DMsWindow(_props: { api: DesktopApi }) {
                           <img src={m.body} alt="attachment" style={{ maxWidth: "200px", maxHeight: "200px", borderRadius: "10px", display: "block" }} />
                         ) : m.body}
                       </div>
-                      <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", marginTop: "2px", padding: "0 3px" }}>{relTime(m.createdAt)}</span>
+                      {showTime && <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)", marginTop: "2px", padding: "0 3px" }}>{relTime(m.createdAt)}</span>}
                     </div>
                   </div>
                 );
@@ -201,7 +204,7 @@ export default function DMsWindow(_props: { api: DesktopApi }) {
                 <div style={{ position: "absolute", left: "8px", right: "8px", bottom: "100%", marginBottom: "8px", background: "var(--panel)", border: "var(--border)", borderRadius: "14px", boxShadow: "0 14px 36px -14px rgba(0,0,0,.55)", padding: "10px", zIndex: 60 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: "2px", maxHeight: "150px", overflowY: "auto" }}>
                     {EMOJIS.map((em, i) => (
-                      <button key={i} onClick={() => setText((t) => t + em)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "18px", padding: "3px", borderRadius: "8px", lineHeight: 1 }}>{em}</button>
+                      <button key={i} className="kw-emoji" onClick={() => setText((t) => t + em)}>{em}</button>
                     ))}
                   </div>
                 </div>

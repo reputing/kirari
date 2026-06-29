@@ -5,7 +5,7 @@
 // this maps to profiles.theme ("sugar" | "angel" | "kuro" | "ostan").
 // ============================================================================
 
-export type ThemeId = "sugar" | "angel" | "kuro" | "ostan";
+export type ThemeId = "sugar" | "angel" | "kuro" | "ostan" | "noir" | "cyber";
 
 export interface ThemeDef {
   vars: Record<string, string>;
@@ -133,6 +133,64 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       "--deco": "#cfeaee",
     },
   },
+  noir: {
+    vars: {
+      "--bg": "linear-gradient(165deg,#1a1a1e 0%,#0e0e12 100%)",
+      "--panel": "#1c1c20",
+      "--panel-2": "#242429",
+      "--ink": "#ececf0",
+      "--ink-soft": "#9a9aa6",
+      "--accent": "#d8d8e0",
+      "--accent-2": "#8a8a96",
+      "--on-accent": "#16161a",
+      "--line": "#34343c",
+      "--border": "1px solid #34343c",
+      "--radius": "12px",
+      "--shadow": "0 22px 56px -22px rgba(0,0,0,.8)",
+      "--btn-shadow": "0 6px 16px -8px rgba(0,0,0,.7)",
+      "--bubble-me": "#3a3a42",
+      "--bubble-me-ink": "#f0f0f4",
+      "--bubble-them": "#242429",
+      "--bubble-them-ink": "#e0e0e6",
+      "--font-display": "'Space Grotesk', system-ui, sans-serif",
+      "--font-body": "'Outfit', system-ui, sans-serif",
+      "--font-pixel": "'Silkscreen', monospace",
+      "--titlebar": "linear-gradient(180deg,#2a2a30,#1c1c20)",
+      "--titlebar-ink": "#ececf0",
+      "--rail": "#161619",
+      "--tab-active": "#2e2e35",
+      "--deco": "#6a6a76",
+    },
+  },
+  cyber: {
+    vars: {
+      "--bg": "radial-gradient(125% 95% at 50% -10%,#1b0f3a 0%,#0d0a24 60%,#07061a 100%)",
+      "--panel": "#141232",
+      "--panel-2": "#1c1942",
+      "--ink": "#e7e9ff",
+      "--ink-soft": "#9aa0d6",
+      "--accent": "#22e0e0",
+      "--accent-2": "#ff5cc8",
+      "--on-accent": "#06121a",
+      "--line": "#33306a",
+      "--border": "1px solid #33306a",
+      "--radius": "12px",
+      "--shadow": "0 22px 56px -22px rgba(20,0,60,.8), 0 0 24px -6px rgba(34,224,224,.35)",
+      "--btn-shadow": "0 5px 16px -8px rgba(34,224,224,.8)",
+      "--bubble-me": "#2a2660",
+      "--bubble-me-ink": "#dffcff",
+      "--bubble-them": "#1c1942",
+      "--bubble-them-ink": "#e7e9ff",
+      "--font-display": "'Orbitron', system-ui, sans-serif",
+      "--font-body": "'Space Grotesk', system-ui, sans-serif",
+      "--font-pixel": "'VT323', monospace",
+      "--titlebar": "linear-gradient(180deg,#2a2660,#1c1942)",
+      "--titlebar-ink": "#e7e9ff",
+      "--rail": "#100e28",
+      "--tab-active": "#2a2660",
+      "--deco": "#7a5cff",
+    },
+  },
 };
 
 // Skin picker metadata (settings window): name, subtitle, 3 swatch colors.
@@ -144,6 +202,8 @@ export const THEME_METAS: Record<
   angel: { name: "angel.exe", sub: "frutiger sky", sw: ["#1fa6f0", "#22c1ab", "#eafaff"] },
   kuro: { name: "kuro lolita", sub: "gothic moe", sw: ["#e24a7d", "#cda44e", "#241522"] },
   ostan: { name: "OS-tan", sub: "retro desktop", sw: ["#2a5bd7", "#1f9e54", "#ece9d8"] },
+  noir: { name: "noir", sub: "mono dark", sw: ["#d8d8e0", "#8a8a96", "#1c1c20"] },
+  cyber: { name: "cyber y2k", sub: "neon glow", sw: ["#22e0e0", "#ff5cc8", "#141232"] },
 };
 
 // ============================================================================

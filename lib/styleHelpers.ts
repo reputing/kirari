@@ -157,6 +157,13 @@ input,textarea,button,select{font-family:inherit}
 .kw-ctrl:hover{background:color-mix(in srgb,var(--titlebar-ink) 26%,transparent);opacity:1}
 .kw-ctrl:active{transform:translateY(.5px)}
 .kw-ctrl-close:hover{background:#ff5f57;color:#fff;opacity:1}
+/* theme-aware range sliders (no more ugly grey) */
+input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:999px;background:color-mix(in srgb,var(--accent) 28%,var(--line));outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 1px 5px -1px rgba(0,0,0,.45);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 1px 5px -1px rgba(0,0,0,.45);cursor:pointer}
+/* emoji picker cells */
+.kw-emoji{border:none;background:transparent;cursor:pointer;font-size:18px;padding:4px;border-radius:9px;line-height:1;transition:background .1s ease,transform .1s ease}
+.kw-emoji:hover{background:color-mix(in srgb,var(--ink) 12%,transparent);transform:scale(1.18)}
 `;
 
 // Safe first-letter for avatars — never throws on undefined/empty.
