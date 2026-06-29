@@ -75,6 +75,25 @@ export default function BioPageView({
     return () => timers.forEach(clearTimeout);
   }, [animate, delayMs, stagger]);
 
+  // optional sparkle cursor trail on the public page
+  useEffect(() => {
+    if (embedded || P.cursor !== "sparkles") return;
+    let last = 0;
+    const onMove = (e: MouseEvent) => {
+      const now = Date.now();
+      if (now - last < 60) return;
+      last = now;
+      const sp = document.createElement("span");
+      sp.textContent = ["✦", "✧", "♡", "·"][Math.floor(Math.random() * 4)];
+      sp.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;pointer-events:none;z-index:99999;font-size:${10 + Math.random() * 8}px;color:var(--accent);transform:translate(-50%,-50%);transition:transform .7s ease,opacity .7s ease;opacity:1;text-shadow:0 0 6px var(--accent)`;
+      document.body.appendChild(sp);
+      requestAnimationFrame(() => { sp.style.transform = `translate(-50%,-50%) translateY(${14 + Math.random() * 14}px) scale(.4)`; sp.style.opacity = "0"; });
+      setTimeout(() => sp.remove(), 720);
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [embedded, P.cursor]);
+
   // hidden transform per entrance style
   function hiddenTransform(): string {
     switch (style) {
@@ -116,6 +135,7 @@ export default function BioPageView({
         overflowX: "hidden",
         color: "var(--ink)",
         fontFamily: "var(--font-body)",
+        cursor: !embedded && P.cursor === "none" ? "none" : undefined,
       }}
     >
       <div style={{ position: embedded ? "absolute" : "fixed", inset: 0, zIndex: 0, filter: gradeFilter, pointerEvents: "none" }}>
@@ -565,10 +585,11 @@ function EffectsOverlay({ profile, embedded, show }: { profile: Profile; embedde
   const P = profile;
   const pos: CSSProperties = { position: embedded ? "absolute" : "fixed", inset: 0, pointerEvents: "none" };
   const density = Math.max(0, Math.min(100, P.ambienceDensity ?? 40));
-  const isRain = P.ambience === "rain";
-  const count = P.ambience && P.ambience !== "none" ? Math.round(6 + (density / 100) * (isRain ? 60 : 30)) : 0;
-  const glyph = P.ambience === "petals" ? "❀" : P.ambience === "snow" ? "❄" : P.ambience === "embers" ? "•" : P.ambience === "orbs" ? "●" : "";
-  const color = P.ambience === "embers" ? "#ff9a4d" : P.ambience === "snow" ? "#fff" : P.ambience === "orbs" ? "var(--accent)" : "var(--deco, #ffb8da)";
+  const type = P.ambience || "none";
+  const heavy = type === "rain" || type === "matrix";
+  const count = type !== "none" ? Math.round(6 + (density / 100) * (heavy ? 60 : type === "fireflies" || type === "starfield" ? 40 : 30)) : 0;
+  const glyphChar = type === "petals" ? "❀" : type === "sakura" ? "✿" : type === "snow" ? "❄" : type === "embers" ? "•" : type === "orbs" ? "●" : "";
+  const glyphColor = type === "embers" ? "#ff9a4d" : type === "snow" ? "#fff" : type === "orbs" ? "var(--accent)" : type === "sakura" ? "#ffb7d5" : "var(--deco, #ffb8da)";
   // default: behind the content so it never crosses the face/name. Opacity
   // defaults lower so it reads as atmosphere, not a snowstorm on top of you.
   const layerBehind = (P.ambienceLayer || "behind") === "behind";
@@ -581,22 +602,35 @@ function EffectsOverlay({ profile, embedded, show }: { profile: Profile; embedde
         <div style={{ ...pos, zIndex: ambZ, opacity: show ? ambOpacity : 0, transition: "opacity 1s ease", overflow: "hidden" }}>
           {Array.from({ length: count }).map((_, i) => {
             const left = (i * 47 + 13) % 100;
-            if (isRain) {
-              // thin angled streaks falling fast and straight (no rotation)
-              const dur = 0.5 + ((i * 7) % 7) / 10; // 0.5s–1.2s
+            if (type === "rain") {
+              const dur = 0.5 + ((i * 7) % 7) / 10;
               const delay = -((i * 13) % 12) / 10;
               const len = 14 + (i % 4) * 7;
-              return (
-                <span key={i} style={{ position: "absolute", left: left + "%", top: "-8%", width: "1.5px", height: len + "px", borderRadius: "2px", background: "linear-gradient(to bottom, transparent, rgba(190,205,255,.75))", transform: "rotate(12deg)", animation: `rainfall ${dur}s linear ${delay}s infinite` }} />
-              );
+              return <span key={i} style={{ position: "absolute", left: left + "%", top: "-8%", width: "1.5px", height: len + "px", borderRadius: "2px", background: "linear-gradient(to bottom, transparent, rgba(190,205,255,.75))", transform: "rotate(12deg)", animation: `rainfall ${dur}s linear ${delay}s infinite` }} />;
+            }
+            if (type === "matrix") {
+              const dur = 1.2 + ((i * 7) % 9) / 10;
+              const delay = -((i * 13) % 14) / 10;
+              const ch = "01アカサタナハ".charAt(i % 8) || "0";
+              return <span key={i} style={{ position: "absolute", left: left + "%", top: "-8%", fontFamily: "monospace", fontSize: 12 + (i % 3) * 4 + "px", color: "#52ff8f", textShadow: "0 0 6px #2bff77", opacity: 0.85, animation: `rainfall ${dur}s linear ${delay}s infinite` }}>{ch}</span>;
+            }
+            if (type === "fireflies") {
+              const top = (i * 37 + 9) % 100;
+              const dur = 5 + (i % 6);
+              const delay = -((i * 11) % 10);
+              const sz = 4 + (i % 3) * 2;
+              return <span key={i} style={{ position: "absolute", left: left + "%", top: top + "%", width: sz + "px", height: sz + "px", borderRadius: "50%", background: "#ffe27a", boxShadow: "0 0 8px 2px #ffd45e", opacity: 0.8, animation: `firefly ${dur}s ease-in-out ${delay}s infinite, twinkle ${2 + (i % 3)}s ease-in-out infinite` }} />;
+            }
+            if (type === "starfield") {
+              const top = (i * 31 + 7) % 100;
+              const sz = 6 + (i % 4) * 4;
+              return <span key={i} style={{ position: "absolute", left: left + "%", top: top + "%", fontSize: sz + "px", color: "#fff", textShadow: "0 0 6px #cfe0ff", animation: `twinkle ${2 + (i % 4)}s ease-in-out ${(i % 5) * -0.5}s infinite` }}>✦</span>;
             }
             const dur = 6 + ((i * 7) % 9);
             const delay = -((i * 13) % 12);
             const size = 8 + (i % 5) * 4;
-            const sway = P.ambience === "petals" || P.ambience === "snow";
-            return (
-              <span key={i} style={{ position: "absolute", left: left + "%", top: "-6%", fontSize: size + "px", color, opacity: 0.7, textShadow: P.ambience === "embers" ? "0 0 6px #ff7a2d" : "none", animation: `fall ${dur}s linear ${delay}s infinite${sway ? `, sway ${3 + (i % 3)}s ease-in-out infinite` : ""}` }}>{glyph}</span>
-            );
+            const sway = type === "petals" || type === "sakura" || type === "snow";
+            return <span key={i} style={{ position: "absolute", left: left + "%", top: "-6%", fontSize: size + "px", color: glyphColor, opacity: 0.7, textShadow: type === "embers" ? "0 0 6px #ff7a2d" : "none", animation: `fall ${dur}s linear ${delay}s infinite${sway ? `, sway ${3 + (i % 3)}s ease-in-out infinite` : ""}` }}>{glyphChar}</span>;
           })}
         </div>
       )}

@@ -224,8 +224,14 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
       <SectionLabel>✦ ATMOSPHERE</SectionLabel>
       <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "0 0 6px" }}>FALLING AMBIENCE</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "8px" }}>
-        {(["none", "petals", "rain", "snow", "embers", "orbs"] as const).map((a) => (
+        {(["none", "petals", "sakura", "rain", "snow", "embers", "orbs", "fireflies", "matrix", "starfield"] as const).map((a) => (
           <button key={a} onClick={() => api.setProfileVal("ambience", a)} style={pageThemeBtn((P.ambience || "none") === a)}>{a}</button>
+        ))}
+      </div>
+      <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "4px 0 6px" }}>CURSOR</div>
+      <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
+        {(["default", "sparkles", "none"] as const).map((c) => (
+          <button key={c} onClick={() => api.setProfileVal("cursor", c)} style={pageThemeBtn((P.cursor || "default") === c)}>{c}</button>
         ))}
       </div>
       {P.ambience && P.ambience !== "none" && (

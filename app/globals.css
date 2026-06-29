@@ -23,6 +23,7 @@
 @keyframes neonflicker { 0%,100% { text-shadow: 0 0 6px var(--accent), 0 0 14px var(--accent) } 47% { text-shadow: 0 0 6px var(--accent), 0 0 14px var(--accent) } 48% { text-shadow: none } 49% { text-shadow: 0 0 6px var(--accent), 0 0 22px var(--accent), 0 0 38px var(--accent) } 50% { text-shadow: none } 51% { text-shadow: 0 0 6px var(--accent), 0 0 14px var(--accent) } }
 @keyframes flameglow { 0%,100% { filter: drop-shadow(0 -1px 4px #ff5e1a) drop-shadow(0 -2px 9px #ffb020) } 50% { filter: drop-shadow(0 -2px 7px #ff7a1a) drop-shadow(0 -4px 14px #ffd24a) } }
 @keyframes shimmer { 0% { background-position: 140% 0 } 100% { background-position: -40% 0 } }
+@keyframes firefly { 0%,100% { transform: translate(0,0) } 25% { transform: translate(16px,-12px) } 50% { transform: translate(-10px,10px) } 75% { transform: translate(12px,14px) } }
 
 * { box-sizing: border-box; }
 

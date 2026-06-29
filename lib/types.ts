@@ -80,7 +80,8 @@ export interface Profile {
   enterTyping?: boolean; // type the click-to-enter tagline out, char by char
 
   // ---- ambience / grade ----
-  ambience?: "none" | "petals" | "rain" | "snow" | "embers" | "orbs"; // overlay
+  ambience?: "none" | "petals" | "sakura" | "rain" | "snow" | "embers" | "orbs" | "fireflies" | "matrix" | "starfield"; // overlay
+  cursor?: "default" | "sparkles" | "none"; // pointer style on the public page
   ambienceDensity?: number; // 0-100
   ambienceLayer?: "behind" | "front"; // behind content (subtle) or in front (over everything)
   ambienceOpacity?: number; // 0-100 overall opacity of the ambience
