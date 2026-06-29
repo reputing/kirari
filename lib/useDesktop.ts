@@ -118,6 +118,18 @@ export interface DesktopApi {
   finishOnb: () => void;
 }
 
+// Assign a real, sequential account UID (first signup = 1). Server-assigned
+// once Supabase is wired; a local counter is the fallback.
+function nextLocalUid(): number {
+  try {
+    const n = Number(localStorage.getItem("kirari:uidseq") || "0") + 1;
+    localStorage.setItem("kirari:uidseq", String(n));
+    return n;
+  } catch {
+    return 1;
+  }
+}
+
 export function useDesktop(): DesktopApi {
   // Start blank (no yuki demo, no fake handle). The hydration effect fills this
   // from the signup handle or the last saved page. `hydratedRef` blocks the
@@ -322,6 +334,9 @@ export function useDesktop(): DesktopApi {
   useEffect(() => {
     const handle = state.profile.handle;
     if (!handle || !hydratedRef.current) return;
+    // assign a real sequential UID once, after hydration (so the placeholder
+    // state never burns a number); it persists on the next save below.
+    if (state.profile.uid === undefined) { setProfileVal("uid", nextLocalUid()); return; }
     const t = setTimeout(() => {
       savePage({
         handle,
