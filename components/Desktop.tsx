@@ -261,6 +261,14 @@ export default function Desktop() {
     <div style={rootStyle} ref={api.rootRef}>
       <style dangerouslySetInnerHTML={{ __html: KEYFRAMES }} />
 
+      {/* smooth hydration loading screen */}
+      {!api.hydrated && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 9998, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px", background: "var(--bg)" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: "23px", color: "var(--accent)" }}>kirari.cafe</div>
+          <div style={{ width: "26px", height: "26px", borderRadius: "50%", border: "3px solid color-mix(in srgb, var(--ink) 16%, transparent)", borderTopColor: "var(--accent)", animation: "spinhue .8s linear infinite" }} />
+        </div>
+      )}
+
       {api.syncError && (
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 9999, background: "#c0392b", color: "#fff", padding: "8px 14px", fontSize: "12.5px", fontFamily: "var(--font-body)", display: "flex", alignItems: "center", gap: "10px", boxShadow: "0 2px 10px rgba(0,0,0,.3)" }}>
           <span style={{ fontSize: "15px" }}>⚠</span>
@@ -446,6 +454,23 @@ export default function Desktop() {
             onTitleContext={openWindowMenu}
           />
         ))}
+
+        {/* mobile home — app grid so the phone view is never blank */}
+        {mobile && !vis.length && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", justifyContent: "center", padding: "26px 16px", overflowY: "auto" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "18px", width: "100%", maxWidth: "330px", alignContent: "start" }}>
+              {appDefs.map((d) => (
+                <button key={d.id} onClick={d.open} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "7px", background: "transparent", border: "none", cursor: "pointer", color: "var(--ink)" }}>
+                  <span style={{ position: "relative", width: "56px", height: "56px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "25px", color: "var(--on-accent)", background: "linear-gradient(145deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent))", boxShadow: "0 8px 18px -8px rgba(0,0,0,.5)" }}>
+                    {d.icon}
+                    {!!d.badge && <span style={{ position: "absolute", top: "-5px", right: "-5px", background: "#ff3b6b", color: "#fff", fontFamily: "var(--font-pixel)", fontSize: "8px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg)" }}>{d.badge}</span>}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-pixel)", fontSize: "10px" }}>{d.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* TASKBAR (desktop) */}

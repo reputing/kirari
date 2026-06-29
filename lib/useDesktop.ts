@@ -31,6 +31,7 @@ import { savePage, loadPage, bumpPresence } from "./store";
 export interface DesktopApi {
   state: AppState;
   syncError: string | null;
+  hydrated: boolean;
   rootRef: React.RefObject<HTMLDivElement>;
   deskRef: React.RefObject<HTMLDivElement>;
   msgRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
@@ -41,6 +42,7 @@ export interface DesktopApi {
   minimizeWindow: (id: string) => void;
   focusWindow: (id: string) => void;
   toggleMax: (id: string) => void;
+  resizeWindow: (id: string, w: number, h: number) => void;
   startDrag: (id: string, e: React.MouseEvent) => void;
 
   // chat
@@ -138,6 +140,7 @@ export function useDesktop(): DesktopApi {
   const [state, setState] = useState<AppState>(() => makeBlankState(""));
   const hydratedRef = useRef(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   // imperative refs (no React re-render during drag / scroll / cursor)
   const rootRef = useRef<HTMLDivElement>(null);
@@ -233,6 +236,7 @@ export function useDesktop(): DesktopApi {
           }
         } catch { /* */ }
         hydratedRef.current = true;
+        setHydrated(true);
       }
     })();
 
@@ -433,6 +437,13 @@ export function useDesktop(): DesktopApi {
           h: Math.round(r.height - 12),
         };
       }),
+    }));
+  }, []);
+
+  const resizeWindow = useCallback((id: string, w: number, h: number) => {
+    setState((s) => ({
+      ...s,
+      windows: s.windows.map((win) => (win.id === id ? { ...win, w: Math.max(260, Math.round(w)), h: Math.max(200, Math.round(h)), max: false } : win)),
     }));
   }, []);
 
@@ -1061,6 +1072,7 @@ export function useDesktop(): DesktopApi {
   return {
     state,
     syncError,
+    hydrated,
     rootRef,
     deskRef,
     msgRefs,
@@ -1069,6 +1081,7 @@ export function useDesktop(): DesktopApi {
     minimizeWindow,
     focusWindow,
     toggleMax,
+    resizeWindow,
     startDrag,
     openDM,
     setConvoDraft,

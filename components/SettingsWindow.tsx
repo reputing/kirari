@@ -18,7 +18,7 @@ const TOGGLE_DEFS: { key: keyof DesktopApi["state"]["toggles"]; label: string; d
   { key: "rain", label: "desktop particles", desc: "floating sparkles drift across your desktop" },
 ];
 
-const BUILT_INS: ThemeId[] = ["sugar", "angel", "kuro", "ostan"];
+const BUILT_INS: ThemeId[] = ["sugar", "angel", "kuro", "ostan", "noir", "cyber"];
 
 // Settings — skin picker (built-ins + custom skins), a full skin editor with
 // import/export codes, vibe toggles, and mood chips.

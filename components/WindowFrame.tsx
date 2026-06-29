@@ -109,6 +109,32 @@ export default function WindowFrame({
     background: "var(--panel)",
   };
 
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    api.focusWindow(w.id);
+    const frame = (e.currentTarget as HTMLElement).closest("[data-win]") as HTMLElement | null;
+    if (!frame) return;
+    const sx = e.clientX, sy = e.clientY, sw = frame.offsetWidth, sh = frame.offsetHeight;
+    let last = { w: sw, h: sh };
+    document.body.style.userSelect = "none";
+    const move = (ev: MouseEvent) => {
+      const nw = Math.max(260, sw + (ev.clientX - sx));
+      const nh = Math.max(200, sh + (ev.clientY - sy));
+      frame.style.width = nw + "px";
+      frame.style.height = nh + "px";
+      last = { w: nw, h: nh };
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      document.body.style.userSelect = "";
+      api.resizeWindow(w.id, last.w, last.h);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   return (
     <div style={frameStyle} data-win={w.id} onMouseDown={() => api.focusWindow(w.id)}>
       {/* titlebar */}
@@ -175,6 +201,15 @@ export default function WindowFrame({
         {w.type === "newgroup" && <NewGroupWindow api={api} winId={w.id} />}
         {w.type === "requests" && <RequestsWindow api={api} />}
       </div>
+
+      {/* resize grip (desktop, non-maximized) */}
+      {!mobile && !w.max && (
+        <div
+          onMouseDown={startResize}
+          title="drag to resize"
+          style={{ position: "absolute", right: "1px", bottom: "1px", width: "16px", height: "16px", cursor: "nwse-resize", zIndex: 6, background: "linear-gradient(135deg, transparent 45%, color-mix(in srgb, var(--ink) 32%, transparent) 45%, color-mix(in srgb, var(--ink) 32%, transparent) 60%, transparent 60%)" }}
+        />
+      )}
     </div>
   );
 }

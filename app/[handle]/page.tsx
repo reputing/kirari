@@ -161,14 +161,10 @@ export default function PublicPage() {
 
       {!entered && <BootSplash handle={handle} ready onEnter={enter} profile={page.profile} />}
 
-      {/* anime-style vertical wipe — horizontal bars cover the screen, then peel
-          up/down to reveal the page mounted beneath. */}
+      {/* clean little iris opening — a solid panel that irises shut to the
+          center, revealing the page mounted beneath. */}
       {wipe && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 70, display: "flex", flexDirection: "column", pointerEvents: "none" }}>
-          {Array.from({ length: 7 }).map((_, i) => (
-            <div key={i} style={{ flex: 1, background: "var(--accent, #9a8cff)", transformOrigin: i % 2 === 0 ? "top" : "bottom", animation: `wipeReveal .7s cubic-bezier(.76,0,.24,1) ${i * 0.07}s forwards` }} />
-          ))}
-        </div>
+        <div style={{ position: "fixed", inset: 0, zIndex: 70, background: "var(--bg, #0e0e12)", pointerEvents: "none", animation: "irisReveal .8s cubic-bezier(.7,0,.25,1) forwards" }} />
       )}
 
       {entered && (
