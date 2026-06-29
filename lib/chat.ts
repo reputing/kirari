@@ -152,9 +152,13 @@ export async function createGroup(creator: string, name: string, memberHandles: 
   if (supabaseConfigured && supabase) {
     const { data: auth } = await supabase.auth.getUser();
     const myUid = auth.user?.id ?? null;
-    const { data: g, error } = await supabase.from("group_threads").insert({ name: nm, owner_uid: myUid }).select("id").single();
+    // Generate the id client-side so we never RETURNING-select the new row: the
+    // group_threads RLS is member-only, and no membership exists yet at insert
+    // time, which made the read-back fail ("SQL error" on group creation).
+    const gid = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : "";
+    if (!gid) return { ok: false, error: "couldn't generate a group id" };
+    const { error } = await supabase.from("group_threads").insert({ id: gid, name: nm, owner_uid: myUid });
     if (error) return { ok: false, error: error.message };
-    const gid = g.id as string;
     const rows = await Promise.all(members.map(async (h) => ({ group_id: gid, handle: h, uid: h === me ? myUid : await resolveHandleUid(h) })));
     const { error: mErr } = await supabase.from("group_members").insert(rows);
     if (mErr) return { ok: false, error: mErr.message };

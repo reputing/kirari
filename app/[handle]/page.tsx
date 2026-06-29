@@ -77,20 +77,18 @@ export default function PublicPage() {
       const p = await loadPage(handle);
       if (!alive) return;
       setPage(p); // null = unclaimed handle → 404 view
+      setLoading(false); // show the enter splash as soon as the page is known
       if (p) {
-        // merge visitor-signed guestbook entries (separate table) with seeded ones
-        const visitor = await loadGuestbook(handle);
-        if (visitor.length) setPage({ ...p, guestbook: [...visitor, ...(p.guestbook || [])].slice(0, 200) });
-        // real stats: bump the view once per load, restore prior reaction state
-        const alreadyReacted = (() => { try { return localStorage.getItem("kirari:reacted:" + handle.toLowerCase()) === "1"; } catch { return false; } })();
-        setReacted(alreadyReacted);
-        const views = await bumpView(handle);
-        const cur = await loadStats(handle);
+        try { setReacted(localStorage.getItem("kirari:reacted:" + handle.toLowerCase()) === "1"); } catch { /* */ }
+        // everything else loads in parallel (was serial → slow)
+        const [visitor, views, cur, seen] = await Promise.all([
+          loadGuestbook(handle), bumpView(handle), loadStats(handle), loadPresence(handle),
+        ]);
+        if (!alive) return;
+        if (visitor.length) setPage((prev) => (prev ? { ...prev, guestbook: [...visitor, ...(prev.guestbook || [])].slice(0, 200) } : prev));
         setStats({ views: views || cur.views, reactions: cur.reactions });
-        const seen = await loadPresence(handle);
         setOnline(seen > 0 && Date.now() - seen < ONLINE_WINDOW_MS);
       }
-      setLoading(false);
     })();
     return () => { alive = false; };
   }, [handle]);
@@ -138,8 +136,10 @@ export default function PublicPage() {
     // away to reveal it. The page is live underneath the whole time, so the
     // cutscene is always visible (it never plays into an empty/black screen).
     setEntered(true);
-    setWipe(true);
-    setTimeout(() => setWipe(false), 1050);
+    // the cutscene waits out the entrance delay (set in editor → entrance), so
+    // the bg "plays" for that long, THEN the wipe + reveal fire together.
+    const delayMs = Math.round((page?.profile.entranceDelay ?? 0) * 1000);
+    window.setTimeout(() => { setWipe(true); window.setTimeout(() => setWipe(false), 1050); }, delayMs);
   }
 
   if (loading) return (
@@ -178,6 +178,7 @@ export default function PublicPage() {
             data={{ theme: page.theme, customThemes: page.customThemes, mood: page.mood, profile: page.profile, guestbook: page.guestbook, fontDisplay: page.fontDisplay, fontBody: page.fontBody }}
             animate
             online={online}
+            isOwner={!!session && session.handle.toLowerCase() === handle}
             stats={stats}
             reacted={reacted}
             onReact={toggleReaction}
@@ -232,25 +233,37 @@ function SignComposer({ onPost, onClose }: { onPost: (text: string, color: strin
   );
 }
 
+// Tiny typewriter for the click-to-enter tagline.
+function Typed({ text }: { text: string }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    setN(0);
+    const id = setInterval(() => setN((x) => { if (x >= text.length) { clearInterval(id); return x; } return x + 1; }), 70);
+    return () => clearInterval(id);
+  }, [text]);
+  return <>{text.slice(0, n)}<span style={{ animation: "blink 1s steps(1) infinite" }}>|</span></>;
+}
+
 // A gentle in-page sign-in prompt (no ugly redirect) for knock/comment.
 function AuthPrompt({ kind, handle, onClose }: { kind: "knock" | "sign"; handle: string; onClose: () => void }) {
   return (
-    <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(30,15,30,.42)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-      <div onMouseDown={(e) => e.stopPropagation()} style={{ width: "330px", maxWidth: "100%", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", padding: "26px 22px", textAlign: "center" }}>
-        <div style={{ fontSize: "34px", marginBottom: "6px" }}>{kind === "knock" ? "✉" : "✎"}</div>
-        <div style={{ fontFamily: "var(--font-display)", fontSize: "18px", color: "var(--ink)", marginBottom: "8px" }}>
-          {kind === "knock" ? `knock on @${handle}'s door?` : `sign @${handle}'s guestbook?`}
+    <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(12,8,16,.55)", backdropFilter: "blur(9px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", animation: "splashFade .2s ease reverse" }}>
+      <div onMouseDown={(e) => e.stopPropagation()} style={{ width: "360px", maxWidth: "100%", background: "var(--panel)", border: "1px solid color-mix(in srgb, var(--ink) 12%, transparent)", borderRadius: "20px", boxShadow: "0 30px 80px -30px rgba(0,0,0,.7)", padding: "28px 24px 22px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "76px", background: "linear-gradient(180deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent)", pointerEvents: "none" }} />
+        <div style={{ position: "relative", width: "56px", height: "56px", margin: "0 auto 13px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", color: "var(--on-accent)", background: "linear-gradient(145deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent))", boxShadow: "0 12px 28px -10px var(--accent)" }}>{kind === "knock" ? "✉" : "✎"}</div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: "19px", color: "var(--ink)", marginBottom: "8px" }}>
+          {kind === "knock" ? `knock on @${handle}?` : `sign @${handle}'s guestbook?`}
         </div>
-        <p style={{ fontSize: "13px", color: "var(--ink-soft)", lineHeight: 1.5, margin: "0 0 20px" }}>
-          you&apos;ll need a kirari account first — it&apos;s free and takes a sec ♡
+        <p style={{ fontSize: "13px", color: "var(--ink-soft)", lineHeight: 1.55, margin: "0 0 22px" }}>
+          you&apos;ll need a free kirari account first — claim your own @handle in a few seconds ♡
         </p>
-        <a href="/?signup=1" style={{ display: "block", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14px", padding: "12px", borderRadius: "var(--radius)", textDecoration: "none", marginBottom: "8px", boxShadow: "var(--btn-shadow)" }}>
-            claim my handle ♡
+        <a href="/?signup=1" style={{ display: "block", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14.5px", padding: "13px", borderRadius: "14px", textDecoration: "none", boxShadow: "0 12px 26px -10px var(--accent)" }}>
+          ✦ claim my page
         </a>
-        <a href="/?login=1" style={{ display: "block", fontFamily: "var(--font-pixel)", fontSize: "11px", color: "var(--ink-soft)", padding: "6px" }}>
-          already have one? log in
+        <a href="/?login=1" style={{ display: "inline-block", marginTop: "13px", fontFamily: "var(--font-pixel)", fontSize: "11px", color: "var(--ink-soft)", textDecoration: "none" }}>
+          already have one? <span style={{ color: "var(--accent)" }}>log in</span>
         </a>
-        <button onClick={onClose} style={{ marginTop: "4px", border: "none", background: "transparent", color: "var(--ink-soft)", fontFamily: "var(--font-pixel)", fontSize: "10px", cursor: "pointer" }}>maybe later</button>
+        <button onClick={onClose} style={{ display: "block", margin: "10px auto 0", border: "none", background: "transparent", color: "var(--ink-soft)", fontFamily: "var(--font-pixel)", fontSize: "10px", cursor: "pointer" }}>maybe later</button>
       </div>
     </div>
   );
@@ -281,6 +294,7 @@ function NotFound({ handle }: { handle: string }) {
 
 function BootSplash({ handle, ready, onEnter, profile }: { handle: string; ready: boolean; onEnter: () => void; profile?: Profile }) {
   const hasBgMedia = profile && (profile.pageBgType === "image" || profile.pageBgType === "video") && profile.pageBgUrl;
+  const enterTagline = (profile?.enterText || "").trim() || "a little corner of the web ♡";
   return (
     <div
       onClick={ready ? onEnter : undefined}
@@ -306,17 +320,17 @@ function BootSplash({ handle, ready, onEnter, profile }: { handle: string; ready
         <video src={profile!.pageBgUrl} autoPlay loop muted playsInline style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "blur(18px) brightness(.6)", transform: "scale(1.1)" }} />
       )}
 
-      {/* drifting sparkles */}
-      {Array.from({ length: 14 }).map((_, i) => (
-        <span key={i} style={{ position: "absolute", left: ((i * 53 + 11) % 100) + "%", top: ((i * 31 + 7) % 100) + "%", fontSize: 8 + (i % 4) * 5 + "px", color: "var(--deco, #ffb8da)", opacity: 0.6, textShadow: "0 0 8px currentColor", animation: `twinkle 3s ease-in-out ${(i % 5) * -0.6}s infinite` }}>✦</span>
+      {/* drifting sparkles — only once the page is ready (kept off the loader) */}
+      {ready && Array.from({ length: 10 }).map((_, i) => (
+        <span key={i} style={{ position: "absolute", left: ((i * 53 + 11) % 100) + "%", top: ((i * 31 + 7) % 100) + "%", fontSize: 7 + (i % 4) * 4 + "px", color: "var(--deco, #ffb8da)", opacity: 0.45, textShadow: "0 0 8px currentColor", animation: `twinkle 3s ease-in-out ${(i % 5) * -0.6}s infinite` }}>✦</span>
       ))}
 
       <div style={{ position: "relative", textAlign: "center", color: "var(--ink, #b06a92)" }}>
         <div style={{ fontFamily: "var(--font-display, 'Mochiy Pop P One', sans-serif)", fontSize: "clamp(30px,7vw,52px)", marginBottom: "8px", animation: "popin .6s cubic-bezier(.2,.8,.2,1)" }}>
           @{handle}
         </div>
-        <div style={{ fontFamily: "var(--font-pixel, 'DotGothic16', monospace)", fontSize: "12px", color: "var(--ink-soft, #c79bb6)", marginBottom: "28px" }}>
-          {ready ? "a little corner of the web ♡" : "loading…"}
+        <div style={{ fontFamily: "var(--font-pixel, 'DotGothic16', monospace)", fontSize: "12px", color: "var(--ink-soft, #c79bb6)", marginBottom: "28px", minHeight: "16px" }}>
+          {ready ? (profile?.enterTyping ? <Typed text={enterTagline} /> : enterTagline) : "loading…"}
         </div>
         {ready ? (
           <button
@@ -337,7 +351,7 @@ function BootSplash({ handle, ready, onEnter, profile }: { handle: string; ready
             ✦ click to enter ✦
           </button>
         ) : (
-          <div style={{ fontSize: "26px", animation: "twinkle 1.1s ease-in-out infinite", color: "var(--accent, #ff7ec0)" }}>✦</div>
+          <div style={{ width: "26px", height: "26px", borderRadius: "50%", border: "3px solid rgba(255,255,255,.16)", borderTopColor: "var(--accent, #9a8cff)", animation: "spinhue .8s linear infinite", margin: "0 auto" }} />
         )}
         {ready && profile?.audioUrl && (
           <div style={{ marginTop: "16px", fontFamily: "var(--font-pixel, monospace)", fontSize: "10px", color: "var(--ink-soft, #c79bb6)" }}>
