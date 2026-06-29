@@ -77,6 +77,16 @@ export function nameStyleFor(fx: TextFx, size?: number): CSSProperties {
       color: "transparent",
       animation: "flameglow 1.6s ease-in-out infinite",
     };
+  const clip: CSSProperties = { WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" };
+  if (fx === "gradient")
+    // theme-driven two-tone gradient that drifts — never a flat single color
+    return { ...base, backgroundImage: "linear-gradient(90deg,var(--accent),var(--accent-2),var(--accent))", backgroundSize: "200% auto", ...clip, animation: "hue 5s linear infinite" };
+  if (fx === "aurora")
+    // soft iridescent multi-hue, tasteful (not the harsh rainbow)
+    return { ...base, backgroundImage: "linear-gradient(110deg,#8fe3c6,#86c4ff,#c8a6ff,#ff9ed0,#8fe3c6)", backgroundSize: "220% auto", ...clip, animation: "hue 7s linear infinite" };
+  if (fx === "shimmer")
+    // accent text with a bright sheen sweeping across
+    return { ...base, backgroundImage: "linear-gradient(110deg,var(--accent) 0%,var(--accent) 42%,#ffffff 50%,var(--accent) 58%,var(--accent) 100%)", backgroundSize: "240% auto", ...clip, animation: "shimmer 3.2s linear infinite" };
   return base;
 }
 
@@ -144,6 +154,7 @@ input,textarea,button,select{font-family:inherit}
 @keyframes rainfall{0%{transform:translateY(-14vh)}100%{transform:translateY(118vh)}}
 @keyframes neonflicker{0%,100%{text-shadow:0 0 6px var(--accent),0 0 14px var(--accent)}48%{text-shadow:none}49%{text-shadow:0 0 6px var(--accent),0 0 22px var(--accent),0 0 38px var(--accent)}50%{text-shadow:none}51%{text-shadow:0 0 6px var(--accent),0 0 14px var(--accent)}}
 @keyframes flameglow{0%,100%{filter:drop-shadow(0 -1px 4px #ff5e1a) drop-shadow(0 -2px 9px #ffb020)}50%{filter:drop-shadow(0 -2px 7px #ff7a1a) drop-shadow(0 -4px 14px #ffd24a)}}
+@keyframes shimmer{0%{background-position:140% 0}100%{background-position:-40% 0}}
 @keyframes twinkle{0%,100%{opacity:.2}50%{opacity:.85}}
 @keyframes blink{0%,55%{opacity:1}56%,100%{opacity:.12}}
 @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-5px);opacity:1}}
