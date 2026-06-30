@@ -159,7 +159,7 @@ function Hero({ theme, setTheme, onClaim }: { theme: ThemeId; setTheme: (t: Them
           ))}
         </div>
       </div>
-      <PreviewWindow theme={theme} setTheme={setTheme} handle={handle || "yuki"} />
+      <PreviewWindow theme={theme} setTheme={setTheme} handle={handle || "yourname"} />
     </section>
   );
 }
@@ -187,7 +187,7 @@ function PreviewWindow({ theme, setTheme, handle }: { theme: ThemeId; setTheme: 
         <div style={{ padding: "18px 16px 20px" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
             <div style={{ width: "66px", height: "66px", borderRadius: "20px", border: "3px solid var(--accent)", background: "repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 6px, var(--tab-active) 6px, var(--tab-active) 12px)", marginBottom: "10px" }} />
-            <div style={{ fontFamily: "var(--font-display)", fontSize: "19px", color: "var(--accent)" }}>{handle} ☆彡</div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: "19px", color: "var(--accent)" }}>{handle}</div>
             <div style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", marginTop: "3px" }}>♡ online</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "7px", marginTop: "14px" }}>
@@ -260,13 +260,15 @@ function TiltCard({ children, style }: { children: React.ReactNode; style?: CSSP
 // --------------------------------------------------- live gallery of real pages
 function ExampleGallery() {
   const [pages, setPages] = useState<PublishedPage[]>([]);
-  useEffect(() => { listPages(12).then(setPages).catch(() => {}); }, []);
-  if (!pages.length) return null;
+  useEffect(() => { listPages(40).then(setPages).catch(() => {}); }, []);
+  // only showcase pages that look real (uploaded avatar); skip blanks/demos
+  const shown = pages.filter((p) => p.profile.pfpUrl && !["you", "yuki"].includes(p.handle)).slice(0, 8);
+  if (!shown.length) return null;
   return (
     <section style={{ marginBottom: "56px" }}>
       <Eyebrow>pages people made</Eyebrow>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "16px" }}>
-        {pages.map((p) => {
+        {shown.map((p) => {
           const v = resolveThemeVars(p.theme, p.customThemes || []) as Record<string, string>;
           const P = p.profile;
           const frame = P.pfpColor && P.pfpColor !== "none" ? P.pfpColor : v["--accent"];
@@ -285,6 +287,9 @@ function ExampleGallery() {
             </a>
           );
         })}
+      </div>
+      <div style={{ textAlign: "center", marginTop: "16px" }}>
+        <a href="/explore" style={{ fontFamily: "var(--font-pixel)", fontSize: "11px", color: "var(--accent)", textDecoration: "none" }}>browse everyone →</a>
       </div>
     </section>
   );
