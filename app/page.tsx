@@ -14,7 +14,7 @@ import { getSession, signUp, signIn, handleAvailable } from "@/lib/auth";
 // dashboard; structured so Supabase Auth drops in at handleAuth().
 // ============================================================================
 
-const ORDER: ThemeId[] = ["sugar", "angel", "kuro", "ostan"];
+const ORDER: ThemeId[] = ["sugar", "angel", "kuro", "ostan", "noir", "cyber"];
 
 export default function Landing() {
   const router = useRouter();
@@ -22,6 +22,15 @@ export default function Landing() {
   const [authOpen, setAuthOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("signup");
   const [session, setSession] = useState<{ handle: string; isAdmin: boolean } | null>(null);
+  const [autoSkin, setAutoSkin] = useState(true);
+  const pickTheme = (t: ThemeId) => { setAutoSkin(false); setTheme(t); };
+
+  // auto-cycle the preview through every skin so the range is visible at a glance
+  useEffect(() => {
+    if (!autoSkin) return;
+    const id = setInterval(() => setTheme((t) => ORDER[(ORDER.indexOf(t) + 1) % ORDER.length]), 3800);
+    return () => clearInterval(id);
+  }, [autoSkin]);
 
   useEffect(() => {
     // restore session on refresh so the landing shows you logged in
@@ -58,10 +67,9 @@ export default function Landing() {
       />
 
       <main style={{ position: "relative", zIndex: 2, maxWidth: "1140px", margin: "0 auto", padding: "0 24px" }}>
-        <Hero theme={theme} setTheme={setTheme} onClaim={() => { setMode("signup"); setAuthOpen(true); }} />
-        <Marquee />
+        <Hero theme={theme} setTheme={pickTheme} onClaim={() => { setMode("signup"); setAuthOpen(true); }} />
         <FeatureWindows />
-        <SkinStrip theme={theme} setTheme={setTheme} />
+        <SkinStrip theme={theme} setTheme={pickTheme} />
         <BootCta onClaim={() => { setMode("signup"); setAuthOpen(true); }} />
       </main>
 
@@ -130,7 +138,7 @@ function Hero({ theme, setTheme, onClaim }: { theme: ThemeId; setTheme: (t: Them
           <span style={{ animation: "blink 1.05s steps(1) infinite" }}> ▌</span>
         </h1>
         <p style={{ fontSize: "16.5px", lineHeight: 1.6, color: "var(--ink-soft)", maxWidth: "480px", margin: "0 0 26px" }}>
-          claim a handle, dress up your page with your own audio, video backdrops and 100+ icons, then knock-and-chat with whoever signs your guestbook. it&apos;s your room on the web — drag the furniture wherever you like.
+          claim a handle, load it with your own music, video backdrops and 100+ icons, then knock-and-chat with whoever signs your guestbook. your room on the web, arranged however you want.
         </p>
         <div style={{ display: "flex", gap: "8px", alignItems: "stretch", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", padding: "8px", maxWidth: "440px", boxShadow: "var(--shadow)" }}>
           <div style={{ display: "flex", alignItems: "center", paddingLeft: "12px", color: "var(--ink-soft)", fontFamily: "var(--font-display)", fontSize: "14px", whiteSpace: "nowrap" }}>
@@ -144,7 +152,7 @@ function Hero({ theme, setTheme, onClaim }: { theme: ThemeId; setTheme: (t: Them
           </button>
         </div>
         <div style={{ marginTop: "14px", fontFamily: "var(--font-pixel)", fontSize: "11px", color: "var(--ink-soft)" }}>
-          free forever · no card · 2.8k pages booted today
+          free forever · no card · no email
         </div>
       </div>
       <PreviewWindow theme={theme} setTheme={setTheme} handle={handle || "yuki"} />
@@ -176,7 +184,7 @@ function PreviewWindow({ theme, setTheme, handle }: { theme: ThemeId; setTheme: 
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
             <div style={{ width: "66px", height: "66px", borderRadius: "20px", border: "3px solid var(--accent)", background: "repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 6px, var(--tab-active) 6px, var(--tab-active) 12px)", marginBottom: "10px" }} />
             <div style={{ fontFamily: "var(--font-display)", fontSize: "19px", color: "var(--accent)" }}>{handle} ☆彡</div>
-            <div style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", marginTop: "3px" }}>♡ sleepy + online</div>
+            <div style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", marginTop: "3px" }}>♡ online</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "7px", marginTop: "14px" }}>
             {["✿ my art gallery", "♫ now playing: dream pop", "★ sign my guestbook"].map((l) => (
@@ -197,18 +205,6 @@ function PreviewWindow({ theme, setTheme, handle }: { theme: ThemeId; setTheme: 
 }
 function dot(c: string): CSSProperties {
   return { width: "9px", height: "9px", borderRadius: "50%", background: c, display: "inline-block" };
-}
-
-// ----------------------------------------------------------------- marquee
-function Marquee() {
-  const items = "♡ drag-and-drop windows ✦ your own audio player ✦ video backgrounds ✦ 100+ social icons ✦ guestbooks ✦ knock-to-chat ✦ group rooms ✦ make-your-own skins ♡";
-  return (
-    <div style={{ margin: "10px 0 50px", border: "var(--border)", borderRadius: "999px", background: "var(--panel)", overflow: "hidden", whiteSpace: "nowrap", fontFamily: "var(--font-pixel)", fontSize: "12px", color: "var(--ink-soft)" }}>
-      <div style={{ display: "inline-block", padding: "9px 0", animation: "marq 22s linear infinite" }}>
-        <span style={{ paddingRight: "40px" }}>{items}</span><span style={{ paddingRight: "40px" }}>{items}</span>
-      </div>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------- feature windows
@@ -243,7 +239,7 @@ function FeatureWindows() {
 function SkinStrip({ theme, setTheme }: { theme: ThemeId; setTheme: (t: ThemeId) => void }) {
   return (
     <section style={{ marginBottom: "56px" }}>
-      <Eyebrow>four skins, or roll your own</Eyebrow>
+      <Eyebrow>six skins, or roll your own</Eyebrow>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "14px" }}>
         {ORDER.map((id) => {
           const m = THEME_METAS[id]; const v = THEMES[id].vars as Record<string, string>; const active = theme === id;
