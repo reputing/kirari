@@ -32,6 +32,7 @@ export default function BioPageView({
   embedded = false,
   online,
   isOwner,
+  audioRef,
   onKnock,
   onSign,
   stats,
@@ -43,6 +44,7 @@ export default function BioPageView({
   embedded?: boolean;
   online?: boolean;
   isOwner?: boolean;
+  audioRef?: React.RefObject<HTMLAudioElement>;
   onKnock?: () => void;
   onSign?: () => void;
   stats?: { views: number; reactions: number };
@@ -158,6 +160,11 @@ export default function BioPageView({
         }}
       >
         <ProfileCard profile={P} mood={data.mood} online={online} isOwner={isOwner} views={views} reactions={stats?.reactions ?? 0} reacted={!!reacted} onReact={onReact} reveal={reveal} onKnock={onKnock} />
+        {P.player === "attached" && audioRef && P.audioUrl && (
+          <div style={{ ...reveal(4), width: "100%", marginTop: "-2px", marginBottom: "14px", display: "flex", justifyContent: "center" }}>
+            <InlinePlayer audioRef={audioRef} profile={P} />
+          </div>
+        )}
         {!hide("links") && (
           <div style={{ ...reveal(4), width: "100%" }}>
             <Links profile={P} onSign={onSign} embedded={embedded} />
@@ -263,6 +270,32 @@ function TypingName({ text }: { text: string }) {
       {(text || "").slice(0, n)}
       <span aria-hidden style={{ animation: "blink 1s steps(1) infinite", fontWeight: 400 }}>|</span>
     </>
+  );
+}
+
+// In-flow music player (player = "attached"): scrolls with the page, under the card.
+function InlinePlayer({ audioRef, profile }: { audioRef: React.RefObject<HTMLAudioElement>; profile: Profile }) {
+  const [playing, setPlaying] = useState(true);
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const on = () => setPlaying(true);
+    const off = () => setPlaying(false);
+    a.addEventListener("play", on);
+    a.addEventListener("pause", off);
+    return () => { a.removeEventListener("play", on); a.removeEventListener("pause", off); };
+  }, [audioRef]);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "9px", padding: "8px 14px 8px 10px", background: "color-mix(in srgb, var(--panel) 55%, transparent)", border: "1px solid color-mix(in srgb, #fff 14%, transparent)", backdropFilter: "blur(14px) saturate(1.4)", WebkitBackdropFilter: "blur(14px) saturate(1.4)", borderRadius: "999px", color: "var(--ink)", boxShadow: "0 10px 28px -12px rgba(0,0,0,.5)", maxWidth: "240px" }}>
+      <button
+        onClick={() => { const a = audioRef.current; if (!a) return; if (a.paused) { const ctx = (a as unknown as { _kirariAudio?: { ctx: AudioContext } })._kirariAudio?.ctx; if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {}); a.play().catch(() => {}); } else a.pause(); }}
+        style={{ width: "26px", height: "26px", borderRadius: "50%", border: "none", background: "var(--accent)", color: "var(--on-accent)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", fontSize: "11px", cursor: "pointer" }}
+      >{playing ? "❚❚" : "►"}</button>
+      <span style={{ display: "flex", flexDirection: "column", minWidth: 0, lineHeight: 1.2, textAlign: "left" }}>
+        <span style={{ fontFamily: "var(--font-display)", fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profile.audioTitle || "now playing"}</span>
+        <span style={{ fontFamily: "var(--font-pixel)", fontSize: "8px", color: "var(--ink-soft)" }}>{playing ? "♫ playing" : "paused"}</span>
+      </span>
+    </div>
   );
 }
 
@@ -478,7 +511,8 @@ function Links({ profile, onSign, embedded }: { profile: Profile; onSign?: () =>
   // button — no more giant boxes duplicating the socials. In the dashboard
   // preview (embedded) we drop the "sign my guestbook" card — you don't sign
   // your own guestbook.
-  const cards = profile.links.filter((l) => (l.embed || !(l.icon && l.url)) && !(embedded && l.kind === "guest"));
+  const hideGuest = embedded || !!profile.hidden?.includes("guestbook");
+  const cards = profile.links.filter((l) => (l.embed || !(l.icon && l.url)) && !(hideGuest && l.kind === "guest"));
   if (!cards.length) return null;
   return (
     <div style={{ width: "100%", marginTop: "16px" }}>

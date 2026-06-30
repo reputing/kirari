@@ -55,6 +55,7 @@ export interface Profile {
   pfpUrl?: string; // uploaded avatar image
   audioUrl?: string; // track that plays on visit (no click-to-enter)
   audioTitle?: string; // shown in the mini player
+  player?: "float" | "attached" | "hidden"; // music player: fixed corner / under the card / no UI
   pageBgType?: PageBgType; // pattern (default) | color | image | video
   pageBgUrl?: string; // image or video URL when type is image/video
   pageBgColor?: string; // solid color when type is color
