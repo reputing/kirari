@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { THEMES, THEME_METAS, type ThemeId } from "@/lib/themes";
+import { THEMES, THEME_METAS, resolveThemeVars, type ThemeId } from "@/lib/themes";
 import { getSession, signUp, signIn, handleAvailable } from "@/lib/auth";
+import { listPages, type PublishedPage } from "@/lib/store";
 
 // ============================================================================
 // kirari.cafe — landing page.
@@ -69,6 +70,7 @@ export default function Landing() {
       <main style={{ position: "relative", zIndex: 2, maxWidth: "1140px", margin: "0 auto", padding: "0 24px" }}>
         <Hero theme={theme} setTheme={pickTheme} onClaim={() => { setMode("signup"); setAuthOpen(true); }} />
         <FeatureWindows />
+        <ExampleGallery />
         <SkinStrip theme={theme} setTheme={pickTheme} />
         <BootCta onClaim={() => { setMode("signup"); setAuthOpen(true); }} />
       </main>
@@ -151,8 +153,10 @@ function Hero({ theme, setTheme, onClaim }: { theme: ThemeId; setTheme: (t: Them
             claim it ♡
           </button>
         </div>
-        <div style={{ marginTop: "14px", fontFamily: "var(--font-pixel)", fontSize: "11px", color: "var(--ink-soft)" }}>
-          free forever · no card · no email
+        <div style={{ display: "flex", gap: "7px", marginTop: "14px", flexWrap: "wrap" }}>
+          {["free forever", "no email", "yours in 30s"].map((t) => (
+            <span key={t} style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", background: "var(--panel)", border: "var(--border)", borderRadius: "999px", padding: "4px 11px" }}>{t}</span>
+          ))}
         </div>
       </div>
       <PreviewWindow theme={theme} setTheme={setTheme} handle={handle || "yuki"} />
@@ -197,7 +201,7 @@ function PreviewWindow({ theme, setTheme, handle }: { theme: ThemeId; setTheme: 
                 style={{ width: "20px", height: "20px", borderRadius: "50%", cursor: "pointer", border: theme === id ? "2px solid var(--ink)" : "2px solid transparent", background: (THEMES[id].vars as Record<string, string>)["--accent"], boxShadow: "0 1px 4px rgba(0,0,0,.2)" }} />
             ))}
           </div>
-          <div style={{ textAlign: "center", marginTop: "9px", fontFamily: "var(--font-pixel)", fontSize: "9px", color: "var(--ink-soft)" }}>↑ try a skin · drag the window ✦</div>
+          <div style={{ textAlign: "center", marginTop: "9px", fontFamily: "var(--font-pixel)", fontSize: "9px", color: "var(--ink-soft)" }}>↑ try a skin, drag the window</div>
         </div>
       </div>
     </div>
@@ -211,7 +215,7 @@ function dot(c: string): CSSProperties {
 function FeatureWindows() {
   const feats = [
     { icon: "✎", title: "dress it up", body: "portraits, charms, name effects, page patterns, video & gif backdrops. pick from 100+ platform icons or upload your own." },
-    { icon: "♫", title: "your sound on load", body: "drop in a track and it plays the moment someone opens your page. no click-to-enter gate — they land right in your world." },
+    { icon: "♫", title: "your sound on load", body: "drop in a track and it plays the moment someone opens your page. no click-to-enter gate, just your world." },
     { icon: "✉", title: "knock & chat", body: "visitors knock, you answer. dm 1:1 or spin up group rooms, react to messages, send stickers and attachments." },
     { icon: "★", title: "a guestbook worth signing", body: "translucent cards, custom name effects, your background behind every signature. proof people stopped by." },
   ];
@@ -220,7 +224,7 @@ function FeatureWindows() {
       <Eyebrow>what&apos;s inside</Eyebrow>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(248px, 1fr))", gap: "16px" }}>
         {feats.map((f) => (
-          <div key={f.title} style={{ background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", overflow: "hidden", boxShadow: "0 10px 26px -18px rgba(0,0,0,.35)" }}>
+          <TiltCard key={f.title} style={{ background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", overflow: "hidden", boxShadow: "0 10px 26px -18px rgba(0,0,0,.35)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", height: "30px", padding: "0 10px", background: "var(--titlebar)", color: "var(--titlebar-ink)", fontFamily: "var(--font-display)", fontSize: "12px" }}>
               <span>{f.icon}</span><span style={{ flex: 1 }}>{f.title}.exe</span><span style={{ fontSize: "10px", opacity: 0.8 }}>▢ ✕</span>
             </div>
@@ -228,8 +232,59 @@ function FeatureWindows() {
               <div style={{ fontFamily: "var(--font-display)", fontSize: "16px", marginBottom: "7px", color: "var(--ink)" }}>{f.title}</div>
               <p style={{ margin: 0, fontSize: "13.5px", lineHeight: 1.55, color: "var(--ink-soft)" }}>{f.body}</p>
             </div>
-          </div>
+          </TiltCard>
         ))}
+      </div>
+    </section>
+  );
+}
+
+// ----------------------------------------------------------- 3D tilt wrapper
+function TiltCard({ children, style }: { children: React.ReactNode; style?: CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  function move(e: React.MouseEvent) {
+    const el = ref.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    el.style.transform = `perspective(820px) rotateX(${(-py * 8).toFixed(2)}deg) rotateY(${(px * 8).toFixed(2)}deg) translateY(-3px)`;
+  }
+  function leave() { if (ref.current) ref.current.style.transform = "perspective(820px) rotateX(0deg) rotateY(0deg)"; }
+  return (
+    <div ref={ref} onMouseMove={move} onMouseLeave={leave} style={{ transition: "transform .12s ease-out", transformStyle: "preserve-3d", willChange: "transform", ...style }}>
+      {children}
+    </div>
+  );
+}
+
+// --------------------------------------------------- live gallery of real pages
+function ExampleGallery() {
+  const [pages, setPages] = useState<PublishedPage[]>([]);
+  useEffect(() => { listPages(12).then(setPages).catch(() => {}); }, []);
+  if (!pages.length) return null;
+  return (
+    <section style={{ marginBottom: "56px" }}>
+      <Eyebrow>pages people made</Eyebrow>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "16px" }}>
+        {pages.map((p) => {
+          const v = resolveThemeVars(p.theme, p.customThemes || []) as Record<string, string>;
+          const P = p.profile;
+          const frame = P.pfpColor && P.pfpColor !== "none" ? P.pfpColor : v["--accent"];
+          return (
+            <a key={p.handle} href={"/" + p.handle} style={{ textDecoration: "none" }}>
+              <TiltCard style={{ ...(v as CSSProperties), background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", overflow: "hidden", boxShadow: "0 14px 32px -16px rgba(0,0,0,.5)", cursor: "pointer" }}>
+                <div style={{ height: "72px", background: v["--bg"], position: "relative" }}>
+                  <div style={{ position: "absolute", left: "14px", bottom: "-22px", width: "46px", height: "46px", borderRadius: P.pfpShape === "circle" ? "50%" : "14px", border: "3px solid " + frame, background: P.pfpUrl ? `center/cover url(${P.pfpUrl})` : "var(--panel-2)" }} />
+                </div>
+                <div style={{ padding: "27px 14px 15px" }}>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: "15px", color: "var(--accent)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{P.name || p.handle}</div>
+                  <div style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)" }}>@{p.handle}</div>
+                  {P.bio && <div style={{ fontSize: "12px", color: "var(--ink-soft)", marginTop: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{P.bio}</div>}
+                </div>
+              </TiltCard>
+            </a>
+          );
+        })}
       </div>
     </section>
   );
@@ -256,7 +311,7 @@ function SkinStrip({ theme, setTheme }: { theme: ThemeId; setTheme: (t: ThemeId)
         })}
       </div>
       <div style={{ marginTop: "14px", fontSize: "13px", color: "var(--ink-soft)", textAlign: "center" }}>
-        not enough? the skin editor lets you mix your own palette, fonts and background — then share it as a code ✦
+        not enough? the skin editor lets you mix your own palette, fonts and background, then share it as a code.
       </div>
     </section>
   );
@@ -343,7 +398,7 @@ function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "sig
           </Field>
           {mode === "signup" && handle.trim() && avail !== null && (
             <div style={{ fontSize: "11px", margin: "-6px 0 10px", color: avail ? "#3bbf86" : "var(--accent)" }}>
-              {avail ? "✓ available — it's yours!" : "✕ that handle is taken"}
+              {avail ? "✓ available, it's yours!" : "✕ that handle is taken"}
             </div>
           )}
           <Field label="PASSWORD"><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" style={field()} onKeyDown={(e) => e.key === "Enter" && handleAuth()} /></Field>
@@ -352,7 +407,7 @@ function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "sig
             {busy ? "booting…" : mode === "signup" ? "claim it & enter ♡" : "enter ♡"}
           </button>
           <div style={{ textAlign: "center", marginTop: "12px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)" }}>
-            {mode === "signup" ? "no email needed · free forever" : "welcome back ✦"}
+            {mode === "signup" ? "no email needed, free forever" : "welcome back"}
           </div>
         </div>
       </div>
