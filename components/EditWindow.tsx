@@ -281,8 +281,14 @@ export default function EditWindow({ api }: { api: DesktopApi }) {
         value={P.audioTitle || ""}
         onChange={(e) => api.setProfileVal("audioTitle", e.target.value)}
         placeholder="track title (shown in the player)"
-        style={{ ...inputStyle, marginBottom: "16px", fontSize: "12.5px" }}
+        style={{ ...inputStyle, marginBottom: "10px", fontSize: "12.5px" }}
       />
+      <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)", margin: "0 0 6px" }}>MUSIC PLAYER</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+        {([["float", "floating"], ["attached", "under profile"], ["hidden", "hidden"]] as [string, string][]).map(([v, label]) => (
+          <button key={v} onClick={() => api.setProfileVal("player", v)} style={pageThemeBtn((P.player || "float") === v)}>{label}</button>
+        ))}
+      </div>
 
       {/* portrait */}
       <SectionLabel>✦ PORTRAIT</SectionLabel>

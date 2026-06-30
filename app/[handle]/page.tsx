@@ -172,12 +172,13 @@ export default function PublicPage() {
 
       {entered && (
         <>
-          <AudioToggle audioRef={audioRef} profile={page.profile} />
+          {(page.profile.player ?? "float") === "float" && <AudioToggle audioRef={audioRef} profile={page.profile} />}
           <BioPageView
             data={{ theme: page.theme, customThemes: page.customThemes, mood: page.mood, profile: page.profile, guestbook: page.guestbook, fontDisplay: page.fontDisplay, fontBody: page.fontBody }}
             animate
             online={online}
             isOwner={!!session && session.handle.toLowerCase() === handle}
+            audioRef={audioRef}
             stats={stats}
             reacted={reacted}
             onReact={toggleReaction}
