@@ -519,3 +519,73 @@ do $$
 begin
   begin alter publication supabase_realtime add table public.dm_reads; exception when duplicate_object then null; end;
 end $$;
+
+-- ============================================================================
+-- Invite-only access. Codes are minted by staff (or "purchased") and burned on
+-- signup. Anyone may READ a code to validate it at signup (before they have a
+-- session); minting/revoking is admin-only; redeeming goes through a
+-- security-definer RPC so an un-authed signup can burn its own code safely.
+-- ============================================================================
+create table if not exists public.invites (
+  code       text primary key,
+  created_by text,
+  created_at timestamptz not null default now(),
+  note       text,
+  paid       boolean not null default false,
+  used_by    text,
+  used_at    timestamptz
+);
+alter table public.invites enable row level security;
+drop policy if exists "invites read" on public.invites;
+create policy "invites read" on public.invites for select using (true);
+drop policy if exists "invites admin write" on public.invites;
+create policy "invites admin write" on public.invites for all
+  to authenticated using (public.is_admin()) with check (public.is_admin());
+
+create or replace function public.create_invite(c text, note text default null, paid boolean default false)
+  returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  insert into public.invites (code, created_by, note, paid)
+  values (c, coalesce((select handle from public.handles where uid = auth.uid() limit 1), 'admin'), note, paid)
+  on conflict (code) do nothing;
+end; $$;
+
+create or replace function public.revoke_invite(c text)
+  returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'admins only'; end if;
+  delete from public.invites where code = c and used_by is null;
+end; $$;
+
+-- redeem: atomically claim an unused code for a handle. Returns true on success.
+create or replace function public.redeem_invite(c text, who text)
+  returns boolean language plpgsql security definer set search_path = public as $$
+declare ok int;
+begin
+  update public.invites set used_by = who, used_at = now()
+  where code = c and used_by is null;
+  get diagnostics ok = row_count;
+  return ok > 0;
+end; $$;
+
+-- ============================================================================
+-- Suspended handles (raid protection). Read-open so signup/login can check;
+-- only admins may add/remove.
+-- ============================================================================
+create table if not exists public.banned_handles (
+  handle     text primary key,
+  reason     text,
+  created_at timestamptz not null default now()
+);
+alter table public.banned_handles enable row level security;
+drop policy if exists "banned read" on public.banned_handles;
+create policy "banned read" on public.banned_handles for select using (true);
+drop policy if exists "banned admin write" on public.banned_handles;
+create policy "banned admin write" on public.banned_handles for all
+  to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- Optional: last visitor IP for the admin panel. Populated by an edge function
+-- that has access to request headers (the browser can't read its own IP).
+alter table public.page_stats add column if not exists last_ip text;
+alter table public.page_stats add column if not exists last_seen timestamptz;

@@ -208,6 +208,7 @@ export function makeBlankState(handle: string): AppState {
       handle: h,
       bio: "",
       since: "",
+      deco: "none",
       links: [
         { id: "guest", emoji: "★", label: "sign my guestbook", meta: "", kind: "guest" },
       ],

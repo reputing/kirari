@@ -7,6 +7,8 @@ import { THEMES, THEME_METAS, resolveThemeVars, type ThemeId } from "@/lib/theme
 import { getSession, signUp, signIn, handleAvailable } from "@/lib/auth";
 import { listPages, type PublishedPage } from "@/lib/store";
 import { nameStyleFor, bgFor, initOf } from "@/lib/styleHelpers";
+import { DOMAINS, DEFAULT_DOMAIN } from "@/lib/domains";
+import { INVITE_ONLY, INVITE_PRICE_USD, purchaseInvite } from "@/lib/invites";
 import type { TextFx, BgPattern, PfpShape } from "@/lib/types";
 
 // ============================================================================
@@ -25,6 +27,7 @@ export default function Landing() {
   const pickTheme = (t: ThemeId) => { setAutoSkin(false); setTheme(t); };
   const [authOpen, setAuthOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [domain, setDomain] = useState(DEFAULT_DOMAIN);
   const [session, setSession] = useState<{ handle: string; isAdmin: boolean } | null>(null);
 
   useEffect(() => {
@@ -50,16 +53,17 @@ export default function Landing() {
     <div style={{ ...vars, minHeight: "100vh", background: "var(--bg)", backgroundAttachment: "fixed", color: "var(--ink)", fontFamily: "var(--font-body)", position: "relative", overflowX: "hidden", transition: "background .6s ease" }}>
       <Sparkles />
       <Nav session={session} onAuth={openAuth} onDash={() => router.push("/dashboard")} />
-      <Hero theme={theme} pickTheme={pickTheme} onClaim={() => openAuth("signup")} />
+      <Hero theme={theme} pickTheme={pickTheme} onClaim={() => openAuth("signup")} domain={domain} setDomain={setDomain} />
       <Pillars />
       <Features />
+      <Domains domain={domain} setDomain={setDomain} onClaim={() => openAuth("signup")} />
       <SkinsGallery theme={theme} pickTheme={pickTheme} />
       <ExampleGallery />
       <Compare />
       <Faq />
-      <BigCta onClaim={() => openAuth("signup")} />
+      <BigCta onClaim={() => openAuth("signup")} domain={domain} setDomain={setDomain} />
       <Footer />
-      {authOpen && <AuthDialog mode={mode} setMode={setMode} onClose={() => setAuthOpen(false)} onAuthed={() => router.push("/dashboard")} />}
+      {authOpen && <AuthDialog mode={mode} setMode={setMode} domain={domain} setDomain={setDomain} onClose={() => setAuthOpen(false)} onAuthed={() => router.push("/dashboard")} />}
     </div>
   );
 }
@@ -160,7 +164,7 @@ function navBtn(primary: boolean): CSSProperties {
 }
 
 // -------------------------------------------------------------------- hero
-function Hero({ theme, pickTheme, onClaim }: { theme: ThemeId; pickTheme: (t: ThemeId) => void; onClaim: () => void }) {
+function Hero({ theme, pickTheme, onClaim, domain, setDomain }: { theme: ThemeId; pickTheme: (t: ThemeId) => void; onClaim: () => void; domain: string; setDomain: (d: string) => void }) {
   const [handle, setHandle] = useState("");
   return (
     <Container style={{ paddingTop: "56px", paddingBottom: "36px" }}>
@@ -176,9 +180,9 @@ function Hero({ theme, pickTheme, onClaim }: { theme: ThemeId; pickTheme: (t: Th
             <span style={{ animation: "blink 1.05s steps(1) infinite" }}> ▌</span>
           </h1>
           <p style={{ fontSize: "17px", lineHeight: 1.6, color: "var(--ink-soft)", maxWidth: "480px", margin: "0 0 26px" }}>
-            most link-in-bios are just a list. kirari is a little desktop you live in. your own music on load, draggable windows, video backdrops, and knock-to-chat with everyone who stops by.
+            most link-in-bios are just a list. kirari is a little desktop you live in. your own music on load, draggable windows, video backdrops, and a door people can knock on to start talking.
           </p>
-          <ClaimBar handle={handle} setHandle={setHandle} onClaim={onClaim} />
+          <ClaimBar handle={handle} setHandle={setHandle} onClaim={onClaim} domain={domain} setDomain={setDomain} />
           <div style={{ display: "flex", gap: "7px", marginTop: "15px", flexWrap: "wrap" }}>
             {["free forever", "no email", "yours in 30s"].map((t) => (
               <span key={t} style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", background: "var(--panel)", border: "var(--border)", borderRadius: "999px", padding: "5px 12px" }}>{t}</span>
@@ -192,26 +196,29 @@ function Hero({ theme, pickTheme, onClaim }: { theme: ThemeId; pickTheme: (t: Th
             ))}
           </div>
         </div>
-        <HeroScene theme={theme} pickTheme={pickTheme} handle={handle || "yourname"} />
+        <HeroScene theme={theme} pickTheme={pickTheme} handle={handle || "yourname"} domain={domain} />
       </div>
     </Container>
   );
 }
 
-function ClaimBar({ handle, setHandle, onClaim }: { handle: string; setHandle: (v: string) => void; onClaim: () => void }) {
+function ClaimBar({ handle, setHandle, onClaim, domain, setDomain }: { handle: string; setHandle: (v: string) => void; onClaim: () => void; domain: string; setDomain: (d: string) => void }) {
   return (
-    <div style={{ display: "flex", gap: "8px", alignItems: "stretch", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", padding: "8px", maxWidth: "450px", boxShadow: "var(--shadow)" }}>
-      <div style={{ display: "flex", alignItems: "center", paddingLeft: "12px", color: "var(--ink-soft)", fontFamily: "var(--font-display)", fontSize: "14px", whiteSpace: "nowrap" }}>kirari.cafe/</div>
+    <div style={{ display: "flex", gap: "8px", alignItems: "stretch", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", padding: "8px", maxWidth: "470px", boxShadow: "var(--shadow)" }}>
+      <select value={domain} onChange={(e) => setDomain(e.target.value)} title="pick your domain"
+        style={{ border: "none", background: "transparent", outline: "none", color: "var(--ink-soft)", fontFamily: "var(--font-display)", fontSize: "14px", cursor: "pointer", maxWidth: "128px", paddingLeft: "8px" }}>
+        {DOMAINS.filter((d) => !d.premium).map((d) => <option key={d.id} value={d.id}>{d.label}/</option>)}
+      </select>
       <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/\s+/g, "").toLowerCase())} placeholder="yourname"
         style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontSize: "15px", fontFamily: "var(--font-display)", color: "var(--ink)" }}
         onKeyDown={(e) => e.key === "Enter" && onClaim()} />
-      <button onClick={onClaim} style={{ border: "none", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14px", padding: "0 20px", borderRadius: "calc(var(--radius) - 6px)", cursor: "pointer", boxShadow: "var(--btn-shadow)", whiteSpace: "nowrap" }}>claim it ♡</button>
+      <button onClick={onClaim} style={{ border: "none", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14px", padding: "0 20px", borderRadius: "calc(var(--radius) - 6px)", cursor: "pointer", boxShadow: "var(--btn-shadow)", whiteSpace: "nowrap" }}>claim it</button>
     </div>
   );
 }
 
 // A profile window with a chat window peeking behind it, tilted in perspective.
-function HeroScene({ theme, pickTheme, handle }: { theme: ThemeId; pickTheme: (t: ThemeId) => void; handle: string }) {
+function HeroScene({ theme, pickTheme, handle, domain }: { theme: ThemeId; pickTheme: (t: ThemeId) => void; handle: string; domain: string }) {
   const [flat, setFlat] = useState(false);
   return (
     <div style={{ perspective: "1600px", display: "flex", justifyContent: "center", padding: "6px 0" }} onMouseEnter={() => setFlat(true)} onMouseLeave={() => setFlat(false)}>
@@ -227,7 +234,7 @@ function HeroScene({ theme, pickTheme, handle }: { theme: ThemeId; pickTheme: (t
         <div style={surface({ position: "absolute", top: 0, right: 0, width: "292px", zIndex: 2, transform: "translateZ(40px)", overflow: "hidden" })}>
           <div style={{ display: "flex", alignItems: "center", gap: "7px", height: "30px", padding: "0 10px", background: "var(--titlebar)", color: "var(--titlebar-ink)" }}>
             <span style={{ fontSize: "10px" }}>❀</span>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: "11.5px", flex: 1 }}>kirari.cafe/@{handle}</span>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "11.5px", flex: 1 }}>{domain}/@{handle}</span>
             <span style={dot("#ffd76b")} /><span style={dot("#7ee0a8")} /><span style={dot("#ff8fa0")} />
           </div>
           <div style={{ padding: "16px 14px" }}>
@@ -282,6 +289,65 @@ function Pillars() {
   );
 }
 
+// ---------------------------------------------------------------- domains
+function Domains({ domain, setDomain, onClaim }: { domain: string; setDomain: (d: string) => void; onClaim: () => void }) {
+  const pick = DOMAINS.filter((d) => !d.premium);
+  const premium = DOMAINS.filter((d) => d.premium);
+  const ghosts = ["@velvet", "@moth", "@static", "@peony", "@0dd", "@lace", "@sable", "@quill", "@rue", "@vesper"];
+  return (
+    <Container style={{ padding: "44px 24px" }}>
+      <Reveal>
+        <div style={surface({ overflow: "hidden", background: "linear-gradient(150deg, color-mix(in srgb, var(--ink) 92%, #000), color-mix(in srgb, var(--ink) 78%, var(--accent)))" })}>
+          <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: "0" }}>
+            {/* left: live preview with faded handles behind a search chip */}
+            <div style={{ position: "relative", minHeight: "260px", padding: "30px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ position: "absolute", inset: 0, opacity: 0.14, pointerEvents: "none" }}>
+                {ghosts.map((g, i) => (
+                  <span key={g} style={{ position: "absolute", left: (i * 29 + 6) % 88 + "%", top: (i * 37 + 8) % 82 + "%", whiteSpace: "nowrap", color: "#fff", fontFamily: "var(--font-pixel)", fontSize: 11 + (i % 3) * 2 + "px" }}>
+                    {pick[i % pick.length].label}/{g}
+                  </span>
+                ))}
+              </div>
+              <button onClick={onClaim} title="claim it" style={{ position: "relative", width: "86%", background: "var(--accent)", border: "none", borderRadius: "18px", padding: "16px", cursor: "pointer", boxShadow: "0 20px 50px -20px rgba(0,0,0,.7)" }}>
+                <div style={{ background: "#fff", borderRadius: "12px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ color: "#222", fontSize: "15px" }}>⌕</span>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: "16px", color: "#222" }}>{domain}/@yourname</span>
+                </div>
+              </button>
+            </div>
+            {/* right: the domain list */}
+            <div style={{ padding: "34px 30px", color: "#fff" }}>
+              <span style={{ display: "inline-block", fontFamily: "var(--font-pixel)", fontSize: "10px", letterSpacing: "1.6px", color: "rgba(255,255,255,.7)", border: "1px solid rgba(255,255,255,.22)", borderRadius: "999px", padding: "5px 12px", marginBottom: "16px" }}>DOMAINS</span>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(26px,3.2vw,38px)", margin: "0 0 12px", lineHeight: 1.05, letterSpacing: "-0.5px" }}>one handle, your pick of domains</h2>
+              <p style={{ fontSize: "14px", lineHeight: 1.6, color: "rgba(255,255,255,.7)", margin: "0 0 20px", maxWidth: "380px" }}>claim your name once and wear whichever domain fits your vibe. pick it at signup, change it whenever.</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 18px" }}>
+                {pick.map((d) => {
+                  const on = domain === d.id;
+                  return (
+                    <button key={d.id} onClick={() => setDomain(d.id)} style={{ display: "flex", alignItems: "center", gap: "9px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: "2px 0" }}>
+                      <span style={{ width: "18px", height: "18px", borderRadius: "50%", flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", background: on ? "var(--accent)" : "rgba(255,255,255,.16)", color: "#fff" }}>✓</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: "15px", color: on ? "#fff" : "rgba(255,255,255,.85)", fontWeight: on ? 700 : 400 }}>{d.label}</span>
+                    </button>
+                  );
+                })}
+                {premium.map((d) => (
+                  <div key={d.id} style={{ display: "flex", alignItems: "center", gap: "9px", padding: "2px 0", opacity: 0.9 }}>
+                    <span style={{ width: "18px", height: "18px", flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", color: "#ffd76b" }}>♛</span>
+                    <span style={{ fontFamily: "var(--font-display)", fontSize: "15px", color: "#ffd76b" }}>{d.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "18px", color: "rgba(255,255,255,.7)", fontSize: "13px" }}>
+                <span style={{ fontSize: "16px" }}>＋</span> and more to come
+              </div>
+            </div>
+          </div>
+        </div>
+      </Reveal>
+    </Container>
+  );
+}
+
 // ---------------------------------------------------------------- features
 function Features() {
   return (
@@ -302,7 +368,7 @@ function Features() {
       <ShowcaseRow
         kicker="your sound on load"
         title={<>music the second <span style={{ color: "var(--accent)" }}>they land</span></>}
-        sub="drop a track and it plays on visit with a live visualizer. no click-to-enter wall, just your world the moment the page opens."
+        sub="drop a track and it plays on visit with a live visualizer. no gate, no wall — your world starts the moment the page opens."
         demo={<DemoSound />}
       />
       <ShowcaseRow
@@ -616,7 +682,7 @@ function Faq() {
 }
 
 // ---------------------------------------------------------------- big cta
-function BigCta({ onClaim }: { onClaim: () => void }) {
+function BigCta({ onClaim, domain, setDomain }: { onClaim: () => void; domain: string; setDomain: (d: string) => void }) {
   const [handle, setHandle] = useState("");
   return (
     <Container style={{ padding: "30px 24px 60px" }}>
@@ -629,7 +695,7 @@ function BigCta({ onClaim }: { onClaim: () => void }) {
               boot up your page <span style={{ color: "var(--accent)" }}>in 30 seconds</span>
             </h2>
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <ClaimBar handle={handle} setHandle={setHandle} onClaim={onClaim} />
+              <ClaimBar handle={handle} setHandle={setHandle} onClaim={onClaim} domain={domain} setDomain={setDomain} />
             </div>
           </div>
         </div>
@@ -640,23 +706,33 @@ function BigCta({ onClaim }: { onClaim: () => void }) {
 
 // ------------------------------------------------------------------- footer
 function Footer() {
+  const [clock, setClock] = useState("");
+  useEffect(() => {
+    const tick = () => setClock(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
+  }, []);
   return (
     <footer style={{ position: "relative", zIndex: 2, marginTop: "20px" }}>
       <Container>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "22px", padding: "28px", ...surface({ boxShadow: "0 12px 30px -18px rgba(0,0,0,.35)" }) }}>
           <div style={{ minWidth: "220px" }}>
             <div style={{ fontFamily: "var(--font-display)", fontSize: "18px", color: "var(--accent)" }}>✦ kirari.cafe</div>
-            <p style={{ fontSize: "13px", color: "var(--ink-soft)", lineHeight: 1.55, marginTop: "8px", maxWidth: "300px" }}>a bio link that boots like a little desktop. your room on the web, made with ♡ for the old internet.</p>
+            <p style={{ fontSize: "13px", color: "var(--ink-soft)", lineHeight: 1.55, marginTop: "8px", maxWidth: "300px" }}>a bio link that boots like a little desktop. claim a handle and it becomes your own room on the web.</p>
           </div>
           <FooterCol title="explore" links={[["browse pages", "/explore"], ["claim a handle", "/?signup=1"], ["log in", "/?login=1"]]} />
           <FooterCol title="your desk" links={[["dashboard", "/dashboard"], ["make a skin", "/?signup=1"], ["knock & chat", "/?signup=1"]]} />
           <FooterCol title="the page" links={[["features", "#features"], ["skins", "#skins"], ["questions", "#"]]} />
         </div>
       </Container>
-      <div style={{ marginTop: "12px", height: "42px", display: "flex", alignItems: "center", gap: "10px", padding: "0 20px", background: "var(--titlebar)", color: "var(--titlebar-ink)", fontFamily: "var(--font-pixel)", fontSize: "11px", borderTop: "2px solid rgba(255,255,255,.4)" }}>
-        <span style={{ background: "var(--accent-2)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "12px", padding: "3px 11px", borderRadius: "5px" }}>▣ start</span>
-        <span style={{ flex: 1 }}>made with ♡ for the old web</span>
+      <div style={{ marginTop: "12px", height: "42px", display: "flex", alignItems: "center", gap: "10px", padding: "0 14px", background: "var(--titlebar)", color: "var(--titlebar-ink)", fontFamily: "var(--font-pixel)", fontSize: "11px", borderTop: "2px solid rgba(255,255,255,.4)" }}>
+        <a href="/?signup=1" style={{ background: "var(--accent-2)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "12px", padding: "4px 12px", borderRadius: "5px", textDecoration: "none", boxShadow: "inset 1px 1px 0 rgba(255,255,255,.4)" }}>▣ start</a>
+        <a href="/explore" style={{ color: "inherit", textDecoration: "none", opacity: 0.85 }}>explore</a>
+        <a href="#skins" style={{ color: "inherit", textDecoration: "none", opacity: 0.85 }}>skins</a>
+        <span style={{ flex: 1 }} />
         <span>© kirari.cafe</span>
+        <span style={{ background: "rgba(0,0,0,.16)", padding: "4px 10px", borderRadius: "5px" }}>◷ {clock}</span>
       </div>
     </footer>
   );
@@ -673,9 +749,11 @@ function FooterCol({ title, links }: { title: string; links: [string, string][] 
 }
 
 // --------------------------------------------------------------- auth dialog
-function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "signup"; setMode: (m: "login" | "signup") => void; onClose: () => void; onAuthed: () => void }) {
+function AuthDialog({ mode, setMode, domain, setDomain, onClose, onAuthed }: { mode: "login" | "signup"; setMode: (m: "login" | "signup") => void; domain: string; setDomain: (d: string) => void; onClose: () => void; onAuthed: () => void }) {
   const [handle, setHandle] = useState(""); const [pw, setPw] = useState("");
+  const [invite, setInvite] = useState("");
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
+  const [buying, setBuying] = useState(false); const [bought, setBought] = useState("");
   const [avail, setAvail] = useState<null | boolean>(null);
   useEffect(() => {
     if (mode !== "signup" || !handle.trim()) { setAvail(null); return; }
@@ -683,15 +761,23 @@ function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "sig
     const t = setTimeout(async () => { const ok = await handleAvailable(handle); if (alive) setAvail(ok); }, 350);
     return () => { alive = false; clearTimeout(t); };
   }, [handle, mode]);
+  async function buy() {
+    setErr(""); setBuying(true);
+    const res = await purchaseInvite();
+    setBuying(false);
+    if (res.ok && res.code) { setInvite(res.code); setBought(res.code); }
+    else setErr(res.error || "couldn't start checkout");
+  }
   async function handleAuth() {
     setErr("");
-    if (!handle.trim() || !pw.trim()) { setErr("fill everything in to continue ♡"); return; }
+    if (!handle.trim() || !pw.trim()) { setErr("fill in your handle and password"); return; }
     setBusy(true);
-    const res = mode === "signup" ? await signUp(handle, pw) : await signIn(handle, pw);
+    const res = mode === "signup" ? await signUp(handle, pw, invite) : await signIn(handle, pw);
     if (!res.ok) { setErr(res.error || "something went wrong"); setBusy(false); return; }
     try {
       const h = handle.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
       window.localStorage.setItem(mode === "signup" ? "kirari:signupHandle" : "kirari:lastHandle", h);
+      if (mode === "signup") window.localStorage.setItem("kirari:signupDomain", domain);
     } catch { /* */ }
     onAuthed();
   }
@@ -709,9 +795,15 @@ function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "sig
               <button key={m} onClick={() => { setMode(m); setErr(""); }} style={{ flex: 1, padding: "9px", borderRadius: "11px", border: mode === m ? "2px solid var(--accent)" : "var(--border)", background: mode === m ? "var(--tab-active)" : "var(--panel-2)", color: "var(--ink)", fontFamily: "var(--font-display)", fontSize: "13px", cursor: "pointer" }}>{m === "signup" ? "claim handle" : "log in"}</button>
             ))}
           </div>
-          <Field label="HANDLE">
+          <Field label={mode === "signup" ? "DOMAIN + HANDLE" : "HANDLE"}>
             <div style={{ display: "flex", alignItems: "center", border: "var(--border)", borderRadius: "11px", background: "var(--panel-2)", padding: "0 10px" }}>
-              <span style={{ color: "var(--ink-soft)", fontSize: "13px", fontFamily: "var(--font-display)" }}>kirari.cafe/</span>
+              {mode === "signup" ? (
+                <select value={domain} onChange={(e) => setDomain(e.target.value)} style={{ border: "none", background: "transparent", outline: "none", color: "var(--ink-soft)", fontFamily: "var(--font-display)", fontSize: "13px", cursor: "pointer", maxWidth: "122px" }}>
+                  {DOMAINS.filter((d) => !d.premium).map((d) => <option key={d.id} value={d.id}>{d.label}/</option>)}
+                </select>
+              ) : (
+                <span style={{ color: "var(--ink-soft)", fontSize: "13px", fontFamily: "var(--font-display)" }}>kirari.cafe/</span>
+              )}
               <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/\s+/g, "").toLowerCase())} placeholder="yourname" style={{ ...field(), border: "none", background: "transparent", padding: "9px 4px" }} onKeyDown={(e) => e.key === "Enter" && handleAuth()} />
             </div>
           </Field>
@@ -719,11 +811,21 @@ function AuthDialog({ mode, setMode, onClose, onAuthed }: { mode: "login" | "sig
             <div style={{ fontSize: "11px", margin: "-6px 0 10px", color: avail ? "#3bbf86" : "var(--accent)" }}>{avail ? "✓ available, it's yours!" : "✕ that handle is taken"}</div>
           )}
           <Field label="PASSWORD"><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" style={field()} onKeyDown={(e) => e.key === "Enter" && handleAuth()} /></Field>
+          {mode === "signup" && INVITE_ONLY && (
+            <Field label="INVITE CODE">
+              <input value={invite} onChange={(e) => setInvite(e.target.value.toUpperCase())} placeholder="KIRA-XXX-XXX" style={field()} onKeyDown={(e) => e.key === "Enter" && handleAuth()} />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "7px" }}>
+                <span style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", color: "var(--ink-soft)" }}>invite-only. got a code?</span>
+                <button type="button" onClick={buy} disabled={buying} style={{ border: "none", background: "transparent", color: "var(--accent)", fontFamily: "var(--font-display)", fontSize: "12px", cursor: "pointer", textDecoration: "underline" }}>{buying ? "starting…" : `buy one — $${INVITE_PRICE_USD}`}</button>
+              </div>
+              {bought && <div style={{ fontSize: "11px", color: "#3bbf86", marginTop: "6px" }}>✓ code {bought} added. claim your handle to use it.</div>}
+            </Field>
+          )}
           {err && <div style={{ fontSize: "12px", color: "var(--accent)", margin: "0 0 10px" }}>{err}</div>}
           <button onClick={handleAuth} disabled={busy || (mode === "signup" && avail === false)} style={{ width: "100%", padding: "12px", border: "none", borderRadius: "11px", background: "var(--accent)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "14px", cursor: busy ? "wait" : "pointer", boxShadow: "var(--btn-shadow)", opacity: busy || (mode === "signup" && avail === false) ? 0.6 : 1 }}>
-            {busy ? "booting…" : mode === "signup" ? "claim it & enter ♡" : "enter ♡"}
+            {busy ? "booting…" : mode === "signup" ? "claim it & enter" : "enter"}
           </button>
-          <div style={{ textAlign: "center", marginTop: "12px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)" }}>{mode === "signup" ? "no email needed, free forever" : "welcome back"}</div>
+          <div style={{ textAlign: "center", marginTop: "12px", fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)" }}>{mode === "signup" ? "invite-only, no email needed" : "welcome back"}</div>
         </div>
       </div>
     </div>

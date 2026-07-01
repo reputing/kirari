@@ -14,6 +14,7 @@ import { decodeTheme } from "./themes";
 import { makeBlankState, PEOPLE, TINTS, peopleAll } from "./seed";
 import { winSize } from "./styleHelpers";
 import { savePage, loadPage, bumpPresence } from "./store";
+import { assignUid, getSession, type Session } from "./auth";
 
 // ============================================================================
 // useDesktop — the single source of truth for the desktop environment.
@@ -32,6 +33,7 @@ export interface DesktopApi {
   state: AppState;
   syncError: string | null;
   hydrated: boolean;
+  session: Session | null;
   rootRef: React.RefObject<HTMLDivElement>;
   deskRef: React.RefObject<HTMLDivElement>;
   msgRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
@@ -120,18 +122,6 @@ export interface DesktopApi {
   finishOnb: () => void;
 }
 
-// Assign a real, sequential account UID (first signup = 1). Server-assigned
-// once Supabase is wired; a local counter is the fallback.
-function nextLocalUid(): number {
-  try {
-    const n = Number(localStorage.getItem("kirari:uidseq") || "0") + 1;
-    localStorage.setItem("kirari:uidseq", String(n));
-    return n;
-  } catch {
-    return 1;
-  }
-}
-
 export function useDesktop(): DesktopApi {
   // Start blank (no yuki demo, no fake handle). The hydration effect fills this
   // from the signup handle or the last saved page. `hydratedRef` blocks the
@@ -141,6 +131,7 @@ export function useDesktop(): DesktopApi {
   const hydratedRef = useRef(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
 
   // imperative refs (no React re-render during drag / scroll / cursor)
   const rootRef = useRef<HTMLDivElement>(null);
@@ -178,6 +169,9 @@ export function useDesktop(): DesktopApi {
           resolvedHandle = signup;
           window.localStorage.removeItem("kirari:signupHandle");
           window.localStorage.setItem("kirari:lastHandle", signup);
+          // the vanity domain picked on the signup screen
+          const domain = window.localStorage.getItem("kirari:signupDomain") || undefined;
+          window.localStorage.removeItem("kirari:signupDomain");
           const existing = await loadPage(signup);
           // Only reuse a saved page if it actually belongs to this handle.
           if (existing && existing.profile?.handle === signup) {
@@ -192,7 +186,8 @@ export function useDesktop(): DesktopApi {
               guestbook: existing.guestbook || [],
             }));
           } else {
-            setState(() => ({ ...makeBlankState(signup), isMobile: window.innerWidth < 760 }));
+            const blank = makeBlankState(signup);
+            setState(() => ({ ...blank, profile: { ...blank.profile, domain }, isMobile: window.innerWidth < 760 }));
           }
           hydratedRef.current = true;
           return;
@@ -323,6 +318,9 @@ export function useDesktop(): DesktopApi {
     } catch { /* */ }
   }, [state.windows, state.dashBgType, state.dashBgUrl, state.dashBgColor, state.iconPos, state.profile.handle]);
 
+  // who's signed in (drives the admin app + role-gated UI)
+  useEffect(() => { getSession().then(setSession).catch(() => setSession(null)); }, []);
+
   // presence heartbeat: while the owner has the dashboard open, mark them as
   // recently seen so their public page can show an accurate online dot.
   useEffect(() => {
@@ -339,8 +337,13 @@ export function useDesktop(): DesktopApi {
     const handle = state.profile.handle;
     if (!handle || !hydratedRef.current) return;
     // assign a real sequential UID once, after hydration (so the placeholder
-    // state never burns a number); it persists on the next save below.
-    if (state.profile.uid === undefined) { setProfileVal("uid", nextLocalUid()); return; }
+    // state never burns a number). Stable per handle — the SAME account always
+    // keeps the SAME number. It persists on the next save below.
+    if (state.profile.uid === undefined) {
+      let alive = true;
+      assignUid(handle).then((n) => { if (alive && n != null) setProfileVal("uid", n); });
+      return () => { alive = false; };
+    }
     const t = setTimeout(() => {
       savePage({
         handle,
@@ -1073,6 +1076,7 @@ export function useDesktop(): DesktopApi {
     state,
     syncError,
     hydrated,
+    session,
     rootRef,
     deskRef,
     msgRefs,
