@@ -114,6 +114,10 @@ export default function Desktop() {
     { id: "edit", icon: "✎", label: "edit", open: () => api.openWindow("edit") },
     { id: "settings", icon: "⚙", label: "skins", open: () => api.openWindow("settings") },
   ];
+  // staff-only control room (admins + mods)
+  if (api.session?.role === "admin" || api.session?.role === "mod") {
+    appDefs.push({ id: "admin", icon: "⚿", label: "admin", open: () => api.openWindow("admin") });
+  }
 
   // pinned favourites float to the top of the dock, in pin order
   const orderedDock = [...appDefs].sort((a, b) => {

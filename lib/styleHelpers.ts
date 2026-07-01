@@ -136,6 +136,7 @@ const WIN_SIZES: Record<WindowType, { w: number; h: number }> = {
   settings: { w: 452, h: 572 },
   newgroup: { w: 374, h: 472 },
   requests: { w: 360, h: 532 },
+  admin: { w: 620, h: 600 },
 };
 
 export function winSize(t: WindowType): { w: number; h: number } {

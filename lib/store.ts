@@ -349,6 +349,27 @@ export async function adminUpdatePage(handle: string, mutate: (p: PublishedPage)
   return { ok: true };
 }
 
+// Admin-only: hard-delete an account's page + registry + guestbook. Relies on
+// the admins RLS policy for the remote path; wipes local mirrors either way.
+export async function adminDeletePage(handle: string): Promise<{ ok: boolean; error?: string }> {
+  const h = handle.toLowerCase();
+  if (supabaseConfigured && supabase) {
+    const { error } = await supabase.from("pages").delete().eq("handle", h);
+    if (error) return { ok: false, error: error.message };
+    await supabase.from("handles").delete().eq("handle", h);
+    await supabase.from("guestbook_entries").delete().eq("page_handle", h);
+  }
+  try {
+    localStorage.removeItem(lsKey(h));
+    localStorage.removeItem("kirari:gb:" + h);
+    localStorage.removeItem("kirari:seen:" + h);
+    localStorage.removeItem("kirari:desktop:" + h);
+    const users = JSON.parse(localStorage.getItem("kirari:users") || "{}");
+    delete users[h]; localStorage.setItem("kirari:users", JSON.stringify(users));
+  } catch { /* */ }
+  return { ok: true };
+}
+
 export function isPersistenceRemote(): boolean {
   return supabaseConfigured;
 }

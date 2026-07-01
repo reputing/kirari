@@ -14,6 +14,7 @@ import EditWindow from "./EditWindow";
 import SettingsWindow from "./SettingsWindow";
 import NewGroupWindow from "./NewGroupWindow";
 import RequestsWindow from "./RequestsWindow";
+import AdminWindow from "./AdminWindow";
 
 // Title + icon for a window's titlebar and taskbar entry.
 export function winMeta(
@@ -36,6 +37,7 @@ export function winMeta(
   if (w.type === "settings") return { icon: "⚙", title: "settings" };
   if (w.type === "newgroup") return { icon: "＋", title: "new group chat" };
   if (w.type === "requests") return { icon: "♡", title: "friend requests" };
+  if (w.type === "admin") return { icon: "⚿", title: "admin — control room" };
   return { icon: "✦", title: "window" };
 }
 
@@ -200,6 +202,7 @@ export default function WindowFrame({
         {w.type === "settings" && <SettingsWindow api={api} />}
         {w.type === "newgroup" && <NewGroupWindow api={api} winId={w.id} />}
         {w.type === "requests" && <RequestsWindow api={api} />}
+        {w.type === "admin" && <AdminWindow api={api} />}
       </div>
 
       {/* resize grip (desktop, non-maximized) */}

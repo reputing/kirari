@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { listPages, type PublishedPage } from "@/lib/store";
 import { resolveThemeVars } from "@/lib/themes";
 import { initOf } from "@/lib/styleHelpers";
+import { isBanned } from "@/lib/auth";
 
 // Public directory of claimed kirari pages — newest first, with a shuffle.
 export default function Explore() {
@@ -12,7 +13,14 @@ export default function Explore() {
   const [loading, setLoading] = useState(true);
   const [shuffled, setShuffled] = useState(false);
 
-  useEffect(() => { listPages(60).then((p) => { setPages(p); setLoading(false); }); }, []);
+  useEffect(() => {
+    listPages(60)
+      // drop malformed rows (no profile) and banned handles so the grid never
+      // crashes on a bad page or shows a suspended account.
+      .then((p) => setPages(p.filter((x) => x && x.profile && x.handle && !isBanned(x.handle))))
+      .catch(() => setPages([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const list = shuffled ? [...pages].sort(() => Math.random() - 0.5) : pages;
 
@@ -28,14 +36,14 @@ export default function Explore() {
       </div>
 
       <div style={{ maxWidth: "880px", margin: "0 auto", padding: "26px 18px 0" }}>
-        <h1 style={{ fontFamily: "'Mochiy Pop P One', sans-serif", fontSize: "30px", color: "#b06a92", margin: "0 0 4px" }}>discover little corners ♡</h1>
+        <h1 style={{ fontFamily: "'Mochiy Pop P One', sans-serif", fontSize: "30px", color: "#b06a92", margin: "0 0 4px" }}>browse pages</h1>
         <p style={{ fontFamily: "'DotGothic16', monospace", fontSize: "12px", color: "#bd92b3", margin: "0 0 24px" }}>
-          {loading ? "loading pages…" : `${pages.length} pages and counting`}
+          {loading ? "loading pages" : `${pages.length} live ${pages.length === 1 ? "page" : "pages"}`}
         </p>
 
         {!loading && pages.length === 0 && (
           <div style={{ textAlign: "center", padding: "50px 20px", color: "#bd92b3" }}>
-            no pages yet — <a href="/?signup=1" style={{ color: "#ff5fa8" }}>be the first ✦</a>
+            no pages yet. <a href="/?signup=1" style={{ color: "#ff5fa8" }}>be the first</a>
           </div>
         )}
 
@@ -48,7 +56,7 @@ export default function Explore() {
 }
 
 function Card({ page }: { page: PublishedPage }) {
-  const vars = resolveThemeVars(page.profile.pageTheme || page.theme, page.customThemes) as CSSProperties;
+  const vars = resolveThemeVars(page.profile.pageTheme || page.theme, page.customThemes || []) as CSSProperties;
   const P = page.profile;
   return (
     <a href={"/" + page.handle} style={{ ...vars, display: "block", textDecoration: "none", background: "var(--panel)", border: "var(--border)", borderRadius: "18px", overflow: "hidden", boxShadow: "0 10px 26px -16px rgba(0,0,0,.4)", transition: "transform .15s ease" }}>

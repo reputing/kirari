@@ -20,7 +20,8 @@ export type WindowType =
   | "edit"
   | "settings"
   | "newgroup"
-  | "requests";
+  | "requests"
+  | "admin";
 
 export interface LinkItem {
   id: string;
@@ -38,6 +39,7 @@ export type PageBgType = "pattern" | "color" | "image" | "video";
 export interface Profile {
   name: string;
   handle: string;
+  domain?: string; // vanity domain chosen at signup (e.g. "prey.lol"); default "kirari.cafe"
   bio: string;
   location?: string; // optional "where" line shown under the bio (guns.lol style)
   showUid?: boolean; // show a UID pill on hover (default true)
