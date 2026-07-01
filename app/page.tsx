@@ -140,7 +140,7 @@ function Hero({ theme, setTheme, onClaim }: { theme: ThemeId; setTheme: (t: Them
           <span style={{ animation: "blink 1.05s steps(1) infinite" }}> ▌</span>
         </h1>
         <p style={{ fontSize: "16.5px", lineHeight: 1.6, color: "var(--ink-soft)", maxWidth: "480px", margin: "0 0 26px" }}>
-          claim a handle, load it with your own music, video backdrops and 100+ icons, then knock-and-chat with whoever signs your guestbook. your room on the web, arranged however you want.
+          most link-in-bios are just a list. kirari is a little desktop you live in. your own music on load, draggable windows, video backdrops, and knock-to-chat with everyone who stops by.
         </p>
         <div style={{ display: "flex", gap: "8px", alignItems: "stretch", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", padding: "8px", maxWidth: "440px", boxShadow: "var(--shadow)" }}>
           <div style={{ display: "flex", alignItems: "center", paddingLeft: "12px", color: "var(--ink-soft)", fontFamily: "var(--font-display)", fontSize: "14px", whiteSpace: "nowrap" }}>
@@ -159,49 +159,54 @@ function Hero({ theme, setTheme, onClaim }: { theme: ThemeId; setTheme: (t: Them
           ))}
         </div>
       </div>
-      <PreviewWindow theme={theme} setTheme={setTheme} handle={handle || "yourname"} />
+      <HeroScene theme={theme} setTheme={setTheme} handle={handle || "yourname"} />
     </section>
   );
 }
 
-// ---------------------------------------------------- draggable preview window
-function PreviewWindow({ theme, setTheme, handle }: { theme: ThemeId; setTheme: (t: ThemeId) => void; handle: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ dx: number; dy: number } | null>(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  function onDown(e: React.MouseEvent) {
-    const el = ref.current; if (!el) return;
-    drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
-    const move = (ev: MouseEvent) => { if (!drag.current) return; setPos({ x: ev.clientX - drag.current.dx, y: ev.clientY - drag.current.dy }); };
-    const up = () => { drag.current = null; window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
-  }
+// ------------------------------------------------- 3D desktop hero scene
+// A profile window with a chat window peeking behind it, tilted in perspective
+// (flattens on hover), all re-skinning live. A desktop scene, not a phone mock.
+function HeroScene({ theme, setTheme, handle }: { theme: ThemeId; setTheme: (t: ThemeId) => void; handle: string }) {
+  const [flat, setFlat] = useState(false);
   return (
-    <div style={{ position: "relative", display: "flex", justifyContent: "center" }}>
-      <div ref={ref} style={{ width: "340px", maxWidth: "100%", transform: `translate(${pos.x}px, ${pos.y}px)`, background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
-        <div onMouseDown={onDown} style={{ display: "flex", alignItems: "center", gap: "8px", height: "32px", padding: "0 10px", background: "var(--titlebar)", color: "var(--titlebar-ink)", cursor: "grab", userSelect: "none" }}>
-          <span style={{ fontSize: "11px" }}>❀</span>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: "12.5px", flex: 1 }}>kirari.cafe/@{handle}</span>
-          <span style={dot("#ffd76b")} /><span style={dot("#7ee0a8")} /><span style={dot("#ff8fa0")} />
+    <div style={{ perspective: "1600px", display: "flex", justifyContent: "center", padding: "6px 0" }} onMouseEnter={() => setFlat(true)} onMouseLeave={() => setFlat(false)}>
+      <div style={{ position: "relative", width: "320px", height: "440px", transformStyle: "preserve-3d", transform: flat ? "rotateY(0deg) rotateX(0deg)" : "rotateY(-13deg) rotateX(6deg)", transition: "transform .55s cubic-bezier(.2,.7,.2,1)" }}>
+        {/* chat window peeking behind */}
+        <div style={{ position: "absolute", top: "74px", left: "-86px", width: "200px", transform: "translateZ(-80px) rotate(-5deg)", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
+          <div style={{ height: "26px", background: "var(--titlebar)", color: "var(--titlebar-ink)", display: "flex", alignItems: "center", padding: "0 9px", fontFamily: "var(--font-display)", fontSize: "10.5px" }}>✉ momo ♡</div>
+          <div style={{ padding: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ alignSelf: "flex-start", background: "var(--bubble-them)", color: "var(--bubble-them-ink)", borderRadius: "12px", borderBottomLeftRadius: "4px", padding: "6px 9px", fontSize: "10px" }}>knock knock ♡</div>
+            <div style={{ alignSelf: "flex-end", background: "var(--bubble-me)", color: "var(--bubble-me-ink)", borderRadius: "12px", borderBottomRightRadius: "4px", padding: "6px 9px", fontSize: "10px" }}>omg hi!!</div>
+            <div style={{ alignSelf: "flex-start", background: "var(--bubble-them)", color: "var(--bubble-them-ink)", borderRadius: "12px", borderBottomLeftRadius: "4px", padding: "6px 9px", fontSize: "10px" }}>be my moot?</div>
+          </div>
         </div>
-        <div style={{ padding: "18px 16px 20px" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-            <div style={{ width: "66px", height: "66px", borderRadius: "20px", border: "3px solid var(--accent)", background: "repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 6px, var(--tab-active) 6px, var(--tab-active) 12px)", marginBottom: "10px" }} />
-            <div style={{ fontFamily: "var(--font-display)", fontSize: "19px", color: "var(--accent)" }}>{handle}</div>
-            <div style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)", marginTop: "3px" }}>♡ online</div>
+        {/* front: profile window */}
+        <div style={{ position: "absolute", top: 0, right: 0, width: "292px", zIndex: 2, transform: "translateZ(40px)", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", height: "30px", padding: "0 10px", background: "var(--titlebar)", color: "var(--titlebar-ink)" }}>
+            <span style={{ fontSize: "10px" }}>❀</span>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "11.5px", flex: 1 }}>kirari.cafe/@{handle}</span>
+            <span style={dot("#ffd76b")} /><span style={dot("#7ee0a8")} /><span style={dot("#ff8fa0")} />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "7px", marginTop: "14px" }}>
-            {["✿ my art gallery", "♫ now playing: dream pop", "★ sign my guestbook"].map((l) => (
-              <div key={l} style={{ background: "var(--panel-2)", border: "var(--border)", borderRadius: "calc(var(--radius) - 8px)", padding: "9px 12px", fontSize: "12.5px", fontWeight: 700, color: "var(--ink)" }}>{l}</div>
-            ))}
+          <div style={{ padding: "16px 14px" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+              <div style={{ width: "58px", height: "58px", borderRadius: "18px", border: "3px solid var(--accent)", background: "repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 6px, var(--tab-active) 6px, var(--tab-active) 12px)", marginBottom: "9px" }} />
+              <div style={{ fontFamily: "var(--font-display)", fontSize: "17px", color: "var(--accent)" }}>{handle}</div>
+              <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9px", color: "var(--ink-soft)", marginTop: "3px" }}>♡ online</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "12px" }}>
+              {["✿ my links", "♫ now playing", "★ guestbook"].map((l) => (
+                <div key={l} style={{ background: "var(--panel-2)", border: "var(--border)", borderRadius: "calc(var(--radius) - 8px)", padding: "8px 11px", fontSize: "11.5px", fontWeight: 700, color: "var(--ink)" }}>{l}</div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: "6px", justifyContent: "center", marginTop: "13px", flexWrap: "wrap" }}>
+              {ORDER.map((id) => (
+                <button key={id} onClick={() => setTheme(id)} title={THEME_METAS[id].name}
+                  style={{ width: "18px", height: "18px", borderRadius: "50%", cursor: "pointer", border: theme === id ? "2px solid var(--ink)" : "2px solid transparent", background: (THEMES[id].vars as Record<string, string>)["--accent"], boxShadow: "0 1px 4px rgba(0,0,0,.2)" }} />
+              ))}
+            </div>
+            <div style={{ textAlign: "center", marginTop: "8px", fontFamily: "var(--font-pixel)", fontSize: "8.5px", color: "var(--ink-soft)" }}>tap a skin, hover to straighten</div>
           </div>
-          <div style={{ display: "flex", gap: "6px", justifyContent: "center", marginTop: "16px" }}>
-            {ORDER.map((id) => (
-              <button key={id} onClick={() => setTheme(id)} title={THEME_METAS[id].name}
-                style={{ width: "20px", height: "20px", borderRadius: "50%", cursor: "pointer", border: theme === id ? "2px solid var(--ink)" : "2px solid transparent", background: (THEMES[id].vars as Record<string, string>)["--accent"], boxShadow: "0 1px 4px rgba(0,0,0,.2)" }} />
-            ))}
-          </div>
-          <div style={{ textAlign: "center", marginTop: "9px", fontFamily: "var(--font-pixel)", fontSize: "9px", color: "var(--ink-soft)" }}>↑ try a skin, drag the window</div>
         </div>
       </div>
     </div>
@@ -281,7 +286,7 @@ function ExampleGallery() {
                 <div style={{ padding: "27px 14px 15px" }}>
                   <div style={{ fontFamily: "var(--font-display)", fontSize: "15px", color: "var(--accent)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{P.name || p.handle}</div>
                   <div style={{ fontFamily: "var(--font-pixel)", fontSize: "10px", color: "var(--ink-soft)" }}>@{p.handle}</div>
-                  {P.bio && <div style={{ fontSize: "12px", color: "var(--ink-soft)", marginTop: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{P.bio}</div>}
+                  {P.bio && <div style={{ fontSize: "12px", color: "var(--ink-soft)", marginTop: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{P.bio.replace(/\s*·\s*/g, ", ")}</div>}
                 </div>
               </TiltCard>
             </a>
@@ -340,10 +345,34 @@ function BootCta({ onClaim }: { onClaim: () => void }) {
 // ------------------------------------------------------------------- footer
 function FooterBar() {
   return (
-    <div style={{ position: "relative", zIndex: 2, marginTop: "10px", height: "40px", display: "flex", alignItems: "center", gap: "10px", padding: "0 16px", background: "var(--titlebar)", color: "var(--titlebar-ink)", fontFamily: "var(--font-pixel)", fontSize: "11px", borderTop: "2px solid rgba(255,255,255,.4)" }}>
-      <span style={{ background: "var(--accent-2)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "12px", padding: "3px 11px", borderRadius: "5px" }}>▣ start</span>
-      <span style={{ flex: 1 }}>made with ♡ for the old web</span>
-      <span>kirari.cafe</span>
+    <footer style={{ position: "relative", zIndex: 2, marginTop: "36px" }}>
+      <div style={{ maxWidth: "1140px", margin: "0 auto", padding: "0 24px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "22px", padding: "26px", background: "var(--panel)", border: "var(--border)", borderRadius: "var(--radius)", boxShadow: "0 12px 30px -18px rgba(0,0,0,.35)" }}>
+          <div style={{ minWidth: "220px" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: "18px", color: "var(--accent)" }}>✦ kirari.cafe</div>
+            <p style={{ fontSize: "13px", color: "var(--ink-soft)", lineHeight: 1.55, marginTop: "8px", maxWidth: "300px" }}>a biolink that boots like a little desktop. your room on the web, made with ♡ for the old internet.</p>
+          </div>
+          <FooterCol title="explore" links={[["browse pages", "/explore"], ["claim a handle", "/?signup=1"], ["log in", "/?login=1"]]} />
+          <FooterCol title="your desk" links={[["dashboard", "/dashboard"], ["make a skin", "/?signup=1"], ["knock & chat", "/?signup=1"]]} />
+        </div>
+      </div>
+      <div style={{ marginTop: "10px", height: "40px", display: "flex", alignItems: "center", gap: "10px", padding: "0 16px", background: "var(--titlebar)", color: "var(--titlebar-ink)", fontFamily: "var(--font-pixel)", fontSize: "11px", borderTop: "2px solid rgba(255,255,255,.4)" }}>
+        <span style={{ background: "var(--accent-2)", color: "var(--on-accent)", fontFamily: "var(--font-display)", fontSize: "12px", padding: "3px 11px", borderRadius: "5px" }}>▣ start</span>
+        <span style={{ flex: 1 }}>made with ♡ for the old web</span>
+        <span>© kirari.cafe</span>
+      </div>
+    </footer>
+  );
+}
+function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
+  return (
+    <div>
+      <div style={{ fontFamily: "var(--font-pixel)", fontSize: "9.5px", letterSpacing: "1.2px", textTransform: "uppercase", color: "var(--ink-soft)", marginBottom: "10px" }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+        {links.map(([label, href]) => (
+          <a key={label} href={href} style={{ fontSize: "13px", color: "var(--ink)", textDecoration: "none", opacity: 0.85 }}>{label}</a>
+        ))}
+      </div>
     </div>
   );
 }
